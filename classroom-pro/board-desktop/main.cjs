@@ -137,6 +137,8 @@ function allowCameraOnHttp() {
 }
 
 allowCameraOnHttp();
+app.commandLine.appendSwitch('disable-renderer-backgrounding');
+app.commandLine.appendSwitch('disable-background-timer-throttling');
 
 function crashLog(err) {
   try {
@@ -360,24 +362,103 @@ function httpJson(method, urlStr, bodyObj) {
   });
 }
 
-/** 站点脚本若用后置摄像头约束失败，这里改成先开任意视频，远程观看才能连上 */
+/** 登录后摄像头保持关闭。只有教师端发「打开 / 观看」后才真正调用摄像头。 */
+const CAMERA_GATE = `
+(() => {
+  if (window.__ccpCamGate) return;
+  window.__ccpCamGate = true;
+  var allow = false;
+  var waiters = [];
+  var tracks = [];
+  function arm() {
+    allow = true;
+    var q = waiters.slice();
+    waiters.length = 0;
+    q.forEach(function (fn) { try { fn(); } catch (e) {} });
+  }
+  function disarm() {
+    allow = false;
+    tracks.forEach(function (t) { try { t.stop(); } catch (e) {} });
+    tracks = [];
+  }
+  function classify(msg) {
+    if (!msg || typeof msg !== 'object') return '';
+    if (msg.action === 'watch-request') return 'start';
+    var ev = msg.event || msg;
+    var type = ev.type || msg.type;
+    var payload = ev.payload || msg.payload || {};
+    if (type === 'camera' && payload.action === 'start') return 'start';
+    if (type === 'camera' && payload.action === 'stop') return 'stop';
+    if (msg.channel === 'live' && msg.event) return classify(msg.event);
+    return '';
+  }
+  function onRaw(data) {
+    if (typeof data !== 'string') return;
+    var msg;
+    try { msg = JSON.parse(data); } catch (e) { return; }
+    var k = classify(msg);
+    if (k === 'start') arm();
+    else if (k === 'stop') disarm();
+  }
+  var OrigWS = window.WebSocket;
+  function Wrapped(url, protocols) {
+    var ws = protocols !== undefined ? new OrigWS(url, protocols) : new OrigWS(url);
+    ws.addEventListener('message', function (ev) { onRaw(ev.data); });
+    return ws;
+  }
+  Wrapped.prototype = OrigWS.prototype;
+  Wrapped.CONNECTING = OrigWS.CONNECTING;
+  Wrapped.OPEN = OrigWS.OPEN;
+  Wrapped.CLOSING = OrigWS.CLOSING;
+  Wrapped.CLOSED = OrigWS.CLOSED;
+  window.WebSocket = Wrapped;
+  function patch() {
+    var md = navigator.mediaDevices;
+    if (!md || typeof md.getUserMedia !== 'function' || md.__ccpPatched) return;
+    var orig = md.getUserMedia.bind(md);
+    md.getUserMedia = function (constraints) {
+      var video = constraints && constraints.video;
+      var run = function () {
+        var c = video ? { video: true, audio: false } : (constraints || { audio: true, video: false });
+        return orig(c).then(function (stream) {
+          stream.getTracks().forEach(function (t) { tracks.push(t); });
+          return stream;
+        });
+      };
+      if (video && !allow) {
+        return new Promise(function (resolve, reject) {
+          waiters.push(function () { run().then(resolve, reject); });
+        });
+      }
+      return run();
+    };
+    md.__ccpPatched = true;
+  }
+  patch();
+  var n = 0;
+  var timer = setInterval(function () {
+    patch();
+    if (navigator.mediaDevices && navigator.mediaDevices.__ccpPatched) clearInterval(timer);
+    if (++n > 40) clearInterval(timer);
+  }, 100);
+})();
+`;
+
 function patchCameraAccess() {
   if (!mainWindow) return;
-  const js = `
-    (() => {
-      const md = navigator.mediaDevices;
-      if (!md || md.__ccpPatched) return;
-      const orig = md.getUserMedia.bind(md);
-      md.getUserMedia = async (constraints) => {
-        const videoOnly = { video: true, audio: false };
-        try { return await orig(videoOnly); } catch (e1) {
-          try { return await orig(constraints || videoOnly); } catch (e2) { throw e1; }
-        }
-      };
-      md.__ccpPatched = true;
-    })();
-  `;
-  mainWindow.webContents.executeJavaScript(js, true).catch(() => {});
+  mainWindow.webContents.executeJavaScript(CAMERA_GATE, true).catch(() => {});
+}
+
+async function installCameraGate() {
+  if (!mainWindow) return;
+  const wc = mainWindow.webContents;
+  try {
+    if (!wc.debugger.isAttached()) wc.debugger.attach('1.3');
+    await wc.debugger.sendCommand('Page.enable');
+    await wc.debugger.sendCommand('Page.addScriptToEvaluateOnNewDocument', { source: CAMERA_GATE });
+  } catch (e) {
+    crashLog(e);
+  }
 }
 
 async function injectTokenAndReload(token) {
@@ -393,7 +474,7 @@ async function injectTokenAndReload(token) {
   await mainWindow.webContents.executeJavaScript(js, true);
 }
 
-function createWindow() {
+async function createWindow() {
   appIcon = loadAppIcon();
   mainWindow = new BrowserWindow({
     width: 520,
@@ -408,10 +489,12 @@ function createWindow() {
       preload: path.join(appRoot(), 'preload.cjs'),
       contextIsolation: true,
       nodeIntegration: false,
+      backgroundThrottling: false,
     },
   });
 
   applySetupChrome();
+  await installCameraGate();
   mainWindow.webContents.on('did-finish-load', () => {
     const url = mainWindow.webContents.getURL() || '';
     if (url.startsWith('http://') || url.startsWith('https://')) patchCameraAccess();
@@ -588,7 +671,7 @@ ipcMain.on('desktop-ready', () => {
   }, 800);
 });
 
-app.whenReady().then(() => {
+app.whenReady().then(async () => {
   try {
     session.defaultSession.setPermissionRequestHandler((_wc, permission, callback) => {
       callback(
@@ -612,7 +695,7 @@ app.whenReady().then(() => {
     /* ignore */
   }
   try {
-    createWindow();
+    await createWindow();
     createTray();
   } catch (e) {
     crashLog(e);

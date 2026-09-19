@@ -19,9 +19,20 @@ if (-not (Test-Path "server\package.json") -or -not (Test-Path "client\dist\inde
   exit 1
 }
 
-Push-Location server
-npm install --omit=dev
-Pop-Location
+if (Test-Path "server\node_modules\express\package.json") {
+  Write-Host "依赖已在本文件夹内。"
+} else {
+  Write-Host "首次运行，正在下载依赖..."
+  Push-Location server
+  npm install --omit=dev
+  if ($LASTEXITCODE -ne 0) {
+    Pop-Location
+    Write-Host "[错误] npm install 失败，请检查网络后重试。" -ForegroundColor Red
+    Read-Host "按回车退出"
+    exit 1
+  }
+  Pop-Location
+}
 
 $env:PORT = "3789"
 Start-Process "http://127.0.0.1:3789/"

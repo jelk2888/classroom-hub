@@ -7,10 +7,16 @@ import { getUserMediaSafe, micAvailableHint } from './mediaAccess';
 const ICE = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] };
 
 /** 教师端：查看教室摄像头 + 文字/麦克风实时喊话 */
-export function CameraPanel({ setLive }: { setLive: (v: any) => void }) {
+export function CameraPanel({
+  setLive,
+  previewVideoRef,
+}: {
+  setLive: (v: any) => void;
+  previewVideoRef?: { current: HTMLVideoElement | null };
+}) {
   const [status, setStatus] = useState('未连接');
   const [watching, setWatching] = useState(false);
-  const [camOnRemote, setCamOnRemote] = useState(true);
+  const [camOnRemote, setCamOnRemote] = useState(false);
   const [shout, setShout] = useState('请同学们安静，注意听讲');
   const [talking, setTalking] = useState(false);
   const [talkHint, setTalkHint] = useState('');
@@ -20,6 +26,28 @@ export function CameraPanel({ setLive }: { setLive: (v: any) => void }) {
   const micRef = useRef<MediaStream | null>(null);
   const connRef = useRef<ReturnType<typeof connectLive> | null>(null);
   const talkLock = useRef(false);
+  const iceBuf = useRef<any[]>([]);
+  const remoteReady = useRef(false);
+  const watchTimer = useRef<number | null>(null);
+
+  const attachStream = (stream: MediaStream) => {
+    const play = (el: HTMLVideoElement | null) => {
+      if (!el) return;
+      el.srcObject = stream;
+      el.muted = true;
+      el.play().catch(() => {});
+    };
+    play(videoRef.current);
+    play(previewVideoRef?.current || null);
+    setWatching(true);
+    setStatus('正在观看教室');
+  };
+
+  const clearVideo = () => {
+    if (videoRef.current) videoRef.current.srcObject = null;
+    if (previewVideoRef?.current) previewVideoRef.current.srcObject = null;
+    setWatching(false);
+  };
 
   const stopVoicePc = () => {
     voicePcRef.current?.close();
@@ -40,8 +68,7 @@ export function CameraPanel({ setLive }: { setLive: (v: any) => void }) {
             setLive({ type: 'camera', title: '摄像头已开', subtitle: '可点击观看教室' });
           } else if (msg.payload?.action === 'stop') {
             setCamOnRemote(false);
-            setWatching(false);
-            if (videoRef.current) videoRef.current.srcObject = null;
+            clearVideo();
             setLive({ type: 'camera', title: '摄像头已关', subtitle: '' });
           }
         }
@@ -56,28 +83,46 @@ export function CameraPanel({ setLive }: { setLive: (v: any) => void }) {
           setStatus(payload.message || '教室摄像头打开失败');
           setLive({ type: 'camera', title: '摄像头未打开', subtitle: payload.message || '请检查一体机摄像头权限' });
         } else if (action === 'offer' && payload.sdp) {
+          if (watchTimer.current) window.clearTimeout(watchTimer.current);
           pcRef.current?.close();
+          remoteReady.current = false;
+          iceBuf.current = [];
           const pc = new RTCPeerConnection(ICE);
           pcRef.current = pc;
           pc.ontrack = (ev) => {
-            if (videoRef.current) {
-              videoRef.current.srcObject = ev.streams[0];
-              videoRef.current.play().catch(() => {});
-            }
-            setWatching(true);
+            const stream = ev.streams[0] || new MediaStream(ev.track ? [ev.track] : []);
+            attachStream(stream);
           };
           pc.onicecandidate = (ev) => {
-            if (ev.candidate) connRef.current?.sendSignal('ice', { candidate: ev.candidate }, 'board');
+            if (ev.candidate) connRef.current?.sendSignal('ice', { candidate: ev.candidate.toJSON() }, 'board');
           };
-          await pc.setRemoteDescription(payload.sdp);
+          pc.onconnectionstatechange = () => {
+            const st = pc.connectionState;
+            if (st === 'failed' || st === 'disconnected') setStatus('教室画面中断，请再点一次观看教室');
+          };
+          const desc = typeof payload.sdp === 'string' ? { type: 'offer' as const, sdp: payload.sdp } : payload.sdp;
+          await pc.setRemoteDescription(desc);
+          remoteReady.current = true;
+          const queued = iceBuf.current.splice(0);
+          for (const c of queued) {
+            try {
+              await pc.addIceCandidate(c);
+            } catch {
+              /* ignore */
+            }
+          }
           const answer = await pc.createAnswer();
           await pc.setLocalDescription(answer);
-          connRef.current?.sendSignal('answer', { sdp: answer }, 'board');
+          connRef.current?.sendSignal('answer', { sdp: pc.localDescription }, 'board');
         } else if (action === 'ice' && payload.candidate) {
-          try {
-            await pcRef.current?.addIceCandidate(payload.candidate);
-          } catch {
-            /* ignore */
+          if (!remoteReady.current || !pcRef.current?.remoteDescription) {
+            iceBuf.current.push(payload.candidate);
+          } else {
+            try {
+              await pcRef.current.addIceCandidate(payload.candidate);
+            } catch {
+              /* ignore */
+            }
           }
         } else if (action === 'voice-answer' && payload.sdp) {
           try {
@@ -96,6 +141,7 @@ export function CameraPanel({ setLive }: { setLive: (v: any) => void }) {
     });
     connRef.current = conn;
     return () => {
+      if (watchTimer.current) window.clearTimeout(watchTimer.current);
       conn.close();
       pcRef.current?.close();
       stopVoicePc();
@@ -112,23 +158,26 @@ export function CameraPanel({ setLive }: { setLive: (v: any) => void }) {
     await api('/api/camera/command', { method: 'POST', body: JSON.stringify({ action: 'stop' }) });
     pcRef.current?.close();
     pcRef.current = null;
-    if (videoRef.current) videoRef.current.srcObject = null;
-    setWatching(false);
+    clearVideo();
     setCamOnRemote(false);
   };
 
   const startWatch = async () => {
+    setStatus('正在请求教室摄像头…');
     if (!camOnRemote) await openCamera();
-    wakeBoard({ title: '教师观看', subtitle: '远程查看教室', type: 'camera' });
-    setTimeout(() => connRef.current?.sendSignal('watch-request', {}, 'board'), 400);
-    setLive({ type: 'camera', title: '正在连接教室画面', subtitle: '仅教师端可见人像' });
+    connRef.current?.sendSignal('watch-request', {}, 'board');
+    if (watchTimer.current) window.clearTimeout(watchTimer.current);
+    watchTimer.current = window.setTimeout(() => {
+      setStatus((s) => (s.startsWith('正在') ? '还没收到教室画面。请确认一体机已登录，并在弹窗里允许摄像头。' : s));
+    }, 8000);
   };
 
   const stopWatch = () => {
+    if (watchTimer.current) window.clearTimeout(watchTimer.current);
     pcRef.current?.close();
     pcRef.current = null;
-    if (videoRef.current) videoRef.current.srcObject = null;
-    setWatching(false);
+    clearVideo();
+    setStatus('已停止观看');
   };
 
   const doShout = async () => {
@@ -198,7 +247,7 @@ export function CameraPanel({ setLive }: { setLive: (v: any) => void }) {
         <span className="muted">{status}</span>
       </div>
       <div className="panel-b">
-        <p className="muted">教室大屏不显示人像；本页可远程观看，并可用麦克风对教室实时喊话。</p>
+        <p className="muted">摄像头默认关闭，点「观看教室」后才会打开。画面只在本页显示，教室大屏不会弹出人像。</p>
         <div className="toolbar">
           <button className="btn primary" type="button" onClick={startWatch}>
             观看教室
@@ -218,15 +267,17 @@ export function CameraPanel({ setLive }: { setLive: (v: any) => void }) {
           ref={videoRef}
           playsInline
           autoPlay
+          muted
           style={{
             width: '100%',
-            maxHeight: 320,
-            background: '#0a2a26',
+            minHeight: 220,
+            maxHeight: 360,
+            objectFit: 'cover',
+            background: '#111',
             borderRadius: 12,
-            display: watching ? 'block' : 'none',
           }}
         />
-        {!watching && <div className="muted">点击「观看教室」后在此显示画面</div>}
+        {!watching && <div className="muted">点击「观看教室」后，这里和右侧预览都会显示摄像头画面</div>}
 
         <h4>麦克风实时喊话</h4>
         <p className="muted" style={{ marginTop: 0 }}>

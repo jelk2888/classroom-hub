@@ -41,7 +41,10 @@ export function BoardPage({ className }: { className?: string }) {
   const [seatLayout, setSeatLayout] = useState({ rows: 6, cols: 8 });
   const [seatCells, setSeatCells] = useState<SeatCell[]>([]);
   const streamRef = useRef<MediaStream | null>(null);
+  const camJobRef = useRef<Promise<MediaStream | null> | null>(null);
   const pcRef = useRef<RTCPeerConnection | null>(null);
+  const iceBufRef = useRef<any[]>([]);
+  const remoteReadyRef = useRef(false);
   const voicePcRef = useRef<RTCPeerConnection | null>(null);
   const voiceAudioRef = useRef<HTMLAudioElement | null>(null);
   const liveRef = useRef<ReturnType<typeof connectLive> | null>(null);
@@ -159,43 +162,48 @@ export function BoardPage({ className }: { className?: string }) {
     }
   };
 
-  const startCamera = async () => {
+  const startCamera = () => {
     if (streamRef.current) {
       liveRef.current?.sendSignal('camera-ready', {}, 'teacher');
-      return;
+      return Promise.resolve(streamRef.current);
     }
-    const tries: MediaStreamConstraints[] = [
-      { video: true, audio: false },
-      { video: { facingMode: 'user' }, audio: false },
-      { video: { facingMode: 'environment' }, audio: false },
-    ];
-    let last = '';
-    for (const c of tries) {
-      try {
-        const stream = await getUserMediaSafe(c);
-        streamRef.current = stream;
-        liveRef.current?.sendSignal('camera-ready', {}, 'teacher');
-        return;
-      } catch (e: any) {
-        last = e?.message || String(e);
+    if (camJobRef.current) return camJobRef.current;
+    camJobRef.current = (async () => {
+      const tries: MediaStreamConstraints[] = [
+        { video: true, audio: false },
+        { video: { facingMode: 'user' }, audio: false },
+        { video: { facingMode: 'environment' }, audio: false },
+      ];
+      let last = '';
+      for (const c of tries) {
+        try {
+          const stream = await getUserMediaSafe(c);
+          streamRef.current = stream;
+          liveRef.current?.sendSignal('camera-ready', {}, 'teacher');
+          return stream;
+        } catch (e: any) {
+          last = e?.message || String(e);
+        }
       }
-    }
-    liveRef.current?.sendSignal('camera-error', { message: last || '无法打开摄像头' }, 'teacher');
+      liveRef.current?.sendSignal('camera-error', { message: last || '无法打开摄像头' }, 'teacher');
+      return null;
+    })().finally(() => {
+      camJobRef.current = null;
+    });
+    return camJobRef.current;
   };
 
-  const ensurePc = () => {
-    if (pcRef.current) return pcRef.current;
-    const pc = new RTCPeerConnection({
-      iceServers: [{ urls: 'stun:stun.l.google.com:19302' }],
-    });
-    pc.onicecandidate = (ev) => {
-      if (ev.candidate) {
-        liveRef.current?.sendSignal('ice', { candidate: ev.candidate }, 'teacher');
+  const flushBoardIce = async () => {
+    const pc = pcRef.current;
+    if (!pc || !remoteReadyRef.current) return;
+    const queued = iceBufRef.current.splice(0);
+    for (const c of queued) {
+      try {
+        await pc.addIceCandidate(c);
+      } catch {
+        /* ignore */
       }
-    };
-    streamRef.current?.getTracks().forEach((t) => pc.addTrack(t, streamRef.current!));
-    pcRef.current = pc;
-    return pc;
+    }
   };
 
   const playCall = (p: any) => {
@@ -230,6 +238,7 @@ export function BoardPage({ className }: { className?: string }) {
         });
         return;
       }
+      if (p.type === 'camera') return;
       if (p.title) flash({ type: p.type || 'wake', title: p.title, subtitle: p.subtitle || p.text || '' });
       return;
     }
@@ -253,12 +262,11 @@ export function BoardPage({ className }: { className?: string }) {
         subtitle: p.kind === 'praise' ? '受到表扬' : '请注意纪律',
       });
     } else if (msg.type === 'camera') {
+      // 摄像头只在后台打开，大屏仍显示课表，不弹出黑板页
       if (p.action === 'start') {
-        flash({ type: 'camera', title: '开启摄像头', subtitle: '教师端远程观看中' });
         startCamera();
       } else if (p.action === 'stop') {
         stopCamera();
-        flash({ type: 'camera', title: '关闭摄像头', subtitle: '' });
       } else if (p.action === 'shout') {
         flash({ type: 'shout', title: '教师喊话', subtitle: p.text || '请注意听讲' });
         speak(p.text || '请同学们注意听讲');
@@ -309,20 +317,38 @@ export function BoardPage({ className }: { className?: string }) {
         const action = msg.action;
         const payload = msg.payload || {};
         if (action === 'watch-request') {
-          if (!streamRef.current) await startCamera();
+          const stream = await startCamera();
+          if (!stream) return;
           pcRef.current?.close();
-          pcRef.current = null;
-          const pc = ensurePc();
+          remoteReadyRef.current = false;
+          iceBufRef.current = [];
+          const pc = new RTCPeerConnection({
+            iceServers: [{ urls: 'stun:stun.l.google.com:19302' }],
+          });
+          pcRef.current = pc;
+          stream.getTracks().forEach((t) => pc.addTrack(t, stream));
+          pc.onicecandidate = (ev) => {
+            if (ev.candidate) {
+              liveRef.current?.sendSignal('ice', { candidate: ev.candidate.toJSON() }, 'teacher');
+            }
+          };
           const offer = await pc.createOffer();
           await pc.setLocalDescription(offer);
-          liveRef.current?.sendSignal('offer', { sdp: offer }, 'teacher');
+          liveRef.current?.sendSignal('offer', { sdp: pc.localDescription }, 'teacher');
         } else if (action === 'answer' && payload.sdp) {
-          await pcRef.current?.setRemoteDescription(payload.sdp);
+          const desc = typeof payload.sdp === 'string' ? { type: 'answer' as const, sdp: payload.sdp } : payload.sdp;
+          await pcRef.current?.setRemoteDescription(desc);
+          remoteReadyRef.current = true;
+          await flushBoardIce();
         } else if (action === 'ice' && payload.candidate) {
-          try {
-            await pcRef.current?.addIceCandidate(payload.candidate);
-          } catch {
-            /* ignore */
+          if (!remoteReadyRef.current || !pcRef.current?.remoteDescription) {
+            iceBufRef.current.push(payload.candidate);
+          } else {
+            try {
+              await pcRef.current.addIceCandidate(payload.candidate);
+            } catch {
+              /* ignore */
+            }
           }
         } else if (action === 'voice-offer' && payload.sdp) {
           stopVoiceRecv();
@@ -359,7 +385,6 @@ export function BoardPage({ className }: { className?: string }) {
       },
     });
     liveRef.current = conn;
-    startCamera();
     return () => {
       conn.close();
       stopCamera();
@@ -378,6 +403,7 @@ export function BoardPage({ className }: { className?: string }) {
         });
         return;
       }
+      if (payload?.type === 'camera') return;
       if (payload?.title) {
         flash({
           type: payload.type || 'wake',

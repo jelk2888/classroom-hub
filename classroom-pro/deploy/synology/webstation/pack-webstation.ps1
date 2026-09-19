@@ -45,11 +45,20 @@ if (Test-Path -LiteralPath $installerHint) {
   }
 }
 
-# Usage doc + Win11 launchers
+# 说明与 Windows 启动脚本（整份复制，避免中文文件名匹配失败）
 Get-ChildItem -LiteralPath $PSScriptRoot -File | Where-Object {
-  $_.Name -eq "源码使用说明.txt" -or $_.Name -like "一键启动网站服务.*"
+  $_.Extension -in ".txt", ".bat", ".ps1" -and $_.Name -notlike "pack-*"
 } | ForEach-Object {
   Copy-Item -LiteralPath $_.FullName -Destination (Join-Path $Out $_.Name) -Force
+}
+
+# 生产依赖打进文件夹，复制走后可离线直接启动
+$srvOut = Join-Path $Out "server"
+if (-not (Test-Path (Join-Path $srvOut "node_modules\express\package.json"))) {
+  Push-Location $srvOut
+  npm install --omit=dev
+  if ($LASTEXITCODE -ne 0) { Pop-Location; throw "npm install in upload pack failed" }
+  Pop-Location
 }
 
 Write-Host "OK: $Out"

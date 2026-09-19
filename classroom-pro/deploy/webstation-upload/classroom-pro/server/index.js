@@ -318,7 +318,9 @@ app.post('/api/camera/command', auth, requireClass, (req, res) => {
   const { action = 'start' } = req.body || {}; // start | stop | shout
   const text = req.body?.text || '';
   publishLive(req.classRow.id, 'camera', { action, text });
-  wakeBoards(req.classRow.id, { type: 'camera', action, text, title: action === 'shout' ? '教师喊话' : '摄像头' });
+  if (action === 'shout') {
+    wakeBoards(req.classRow.id, { type: 'shout', action, text, title: '教师喊话', subtitle: text });
+  }
   res.json({ ok: true });
 });
 

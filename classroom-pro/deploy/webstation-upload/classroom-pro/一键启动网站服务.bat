@@ -34,14 +34,19 @@ if not exist "client\dist\index.html" (
   exit /b 1
 )
 
-echo 正在检查依赖（首次可能需要几分钟）...
+echo 正在检查依赖...
 pushd server
-call npm install --omit=dev
-if errorlevel 1 (
-  echo [错误] npm install 失败，请检查网络后重试。
-  popd
-  pause
-  exit /b 1
+if exist "node_modules\express\package.json" (
+  echo 依赖已在本文件夹内。
+) else (
+  echo 首次运行，正在下载依赖（需要联网）...
+  call npm install --omit=dev
+  if errorlevel 1 (
+    echo [错误] npm install 失败，请检查网络后重试。
+    popd
+    pause
+    exit /b 1
+  )
 )
 popd
 

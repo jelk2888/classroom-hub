@@ -66,6 +66,7 @@ export function Workspace({ cls, onLogout }: { cls: any; onLogout: () => void })
   const [tab, setTab] = useState<Tab>('calling');
   const [students, setStudents] = useState<any[]>([]);
   const [live, setLive] = useState({ type: 'idle', title: '课堂就绪', subtitle: '等待指令 · 请先打开教室大屏' });
+  const previewVideoRef = useRef<HTMLVideoElement>(null);
   const [announce, setAnnounce] = useState<any[]>([]);
   const [cols, setCols] = useState(6);
   const [classInfo, setClassInfo] = useState(cls.class || cls);
@@ -125,11 +126,11 @@ export function Workspace({ cls, onLogout }: { cls: any; onLogout: () => void })
           wakeBoard({ title: '班级公告', subtitle: p.content, type: 'announce' });
         } else if (msg.type === 'homework' || msg.type === 'discipline') {
           loadStudents();
-        } else if (msg.type === 'camera') {
+        } else if (msg.type === 'camera' && p.action === 'shout') {
           setLive({
-            type: 'camera',
-            title: p.action === 'shout' ? '喊话' : '摄像头',
-            subtitle: p.text || p.action,
+            type: 'shout',
+            title: '喊话',
+            subtitle: p.text || '',
           });
         }
       },
@@ -276,7 +277,7 @@ export function Workspace({ cls, onLogout }: { cls: any; onLogout: () => void })
               <PickerMod students={students} cols={cols} setCols={setCols} setLive={setLive} />
             )}
             {tab === 'timer' && <TimerMod setLive={setLive} />}
-            {tab === 'camera' && <CameraPanel setLive={setLive} />}
+            {tab === 'camera' && <CameraPanel setLive={setLive} previewVideoRef={previewVideoRef} />}
             {tab === 'seats' && (
               <SeatMod
                 students={students}
@@ -308,12 +309,28 @@ export function Workspace({ cls, onLogout }: { cls: any; onLogout: () => void })
                 弹出大屏
               </button>
             </div>
-            <div className="live">
-              <div>
-                <div className="k">{live.type.toUpperCase()}</div>
-                <div className="t">{live.title}</div>
-                <div className="s">{live.subtitle}</div>
-              </div>
+            <div className="live" style={tab === 'camera' ? { padding: 0, overflow: 'hidden', minHeight: 240 } : undefined}>
+              <video
+                ref={previewVideoRef}
+                autoPlay
+                playsInline
+                muted
+                style={{
+                  display: tab === 'camera' ? 'block' : 'none',
+                  width: '100%',
+                  minHeight: 240,
+                  maxHeight: 420,
+                  objectFit: 'cover',
+                  background: '#111',
+                }}
+              />
+              {tab !== 'camera' && (
+                <div>
+                  <div className="k">{live.type.toUpperCase()}</div>
+                  <div className="t">{live.title}</div>
+                  <div className="s">{live.subtitle}</div>
+                </div>
+              )}
             </div>
           </div>
         </div>
