@@ -52,6 +52,9 @@ export function CameraPanel({ setLive }: { setLive: (v: any) => void }) {
         if (action === 'camera-ready') {
           setStatus('教室摄像头就绪');
           setCamOnRemote(true);
+        } else if (action === 'camera-error') {
+          setStatus(payload.message || '教室摄像头打开失败');
+          setLive({ type: 'camera', title: '摄像头未打开', subtitle: payload.message || '请检查一体机摄像头权限' });
         } else if (action === 'offer' && payload.sdp) {
           pcRef.current?.close();
           const pc = new RTCPeerConnection(ICE);

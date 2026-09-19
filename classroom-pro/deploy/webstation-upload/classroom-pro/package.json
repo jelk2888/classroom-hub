@@ -1,0 +1,13 @@
+{
+  "name": "classroom-pro-webstation",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "prestart": "npm --prefix server install --omit=dev",
+    "start": "node server/index.js"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

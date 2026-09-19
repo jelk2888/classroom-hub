@@ -8,6 +8,7 @@ const {
   Notification,
   screen,
   dialog,
+  session,
 } = require('electron');
 const path = require('path');
 const fs = require('fs');
@@ -17,7 +18,7 @@ const https = require('https');
 const RAIL_W = 248;
 const CONFIG_NAME = 'board-config.json';
 
-/** setup | board-rail | board-full */
+/** setup | board-rail | board-full | tray */
 let uiPhase = 'setup';
 let mainWindow = null;
 let tray = null;
@@ -103,6 +104,53 @@ function buildBoardUrl(cfg) {
   return `${base}/?mode=desktop`;
 }
 
+/** HTTP 站点在 Electron 里默认不能开摄像头，把已配置的服务器标成安全源 */
+function allowCameraOnHttp() {
+  const origins = new Set([
+    'http://127.0.0.1:3789',
+    'http://localhost:3789',
+    'http://127.0.0.1:5174',
+    'http://localhost:5174',
+  ]);
+  try {
+    const cfg = readConfig();
+    const host = String(cfg.host || '').trim();
+    if (host) {
+      const proto = cfg.https ? 'https' : 'http';
+      const port = Number(cfg.port) || (cfg.https ? 443 : 80);
+      origins.add(`${proto}://${host}:${port}`);
+      origins.add(`${proto}://${host}`);
+    }
+    const extra = path.join(path.dirname(process.execPath), 'camera-origins.txt');
+    if (fs.existsSync(extra)) {
+      String(fs.readFileSync(extra, 'utf8'))
+        .split(/\r?\n/)
+        .map((s) => s.trim())
+        .filter(Boolean)
+        .forEach((o) => origins.add(o));
+    }
+  } catch {
+    /* ignore */
+  }
+  app.commandLine.appendSwitch('unsafely-treat-insecure-origin-as-secure', [...origins].join(','));
+  global.__ccpOrigins = origins;
+}
+
+allowCameraOnHttp();
+
+function crashLog(err) {
+  try {
+    const file = path.join(path.dirname(process.execPath), 'crash.log');
+    fs.appendFileSync(file, `\n${new Date().toISOString()}\n${err && err.stack ? err.stack : err}\n`, 'utf8');
+  } catch {
+    /* ignore */
+  }
+}
+
+process.on('uncaughtException', (err) => {
+  crashLog(err);
+});
+
 function loadAppIcon() {
   const candidates = [
     path.join(appRoot(), 'assets', 'app.ico'),
@@ -152,11 +200,35 @@ function applySetupChrome() {
   mainWindow.setSkipTaskbar(false);
   mainWindow.setSize(520, 720);
   mainWindow.center();
+  if (!mainWindow.isVisible()) mainWindow.show();
   applyingChrome = false;
   if (tray) tray.setToolTip('教室大屏智控 · 登录设置');
 }
 
-/** 右侧今日课表：最小化按钮灰掉不可点；最大化=展开大屏 */
+/** 隐藏到托盘：不占任务栏，只留右下角托盘图标待命 */
+function hideToTray() {
+  if (!mainWindow || quitting) return;
+  applyingChrome = true;
+  uiPhase = 'tray';
+  docked = false;
+  try {
+    if (mainWindow.isMinimized()) mainWindow.restore();
+  } catch {
+    /* ignore */
+  }
+  try {
+    if (mainWindow.isMaximized()) mainWindow.unmaximize();
+  } catch {
+    /* ignore */
+  }
+  mainWindow.setAlwaysOnTop(false);
+  mainWindow.setSkipTaskbar(true);
+  mainWindow.hide();
+  applyingChrome = false;
+  if (tray) tray.setToolTip('教室大屏智控 · 托盘待命（有任务自动弹出大屏）');
+}
+
+/** 右侧今日课表：不占任务栏；不置顶；最大化=展开大屏 */
 function dockRail() {
   if (!mainWindow || quitting) return;
   applyingChrome = true;
@@ -164,38 +236,47 @@ function dockRail() {
   docked = true;
   sendMode('rail');
   try {
+    if (mainWindow.isMinimized()) mainWindow.restore();
+  } catch {
+    /* ignore */
+  }
+  try {
     if (mainWindow.isMaximized()) mainWindow.unmaximize();
   } catch {
     /* ignore */
   }
   const area = workArea();
   mainWindow.setResizable(true);
-  mainWindow.setMinimizable(false); // 已是课表条，最小化变灰
+  mainWindow.setMinimizable(true); // 最小化 → 收进托盘
   mainWindow.setMaximizable(true); // 最大化 → 展示大屏
-  // 右侧课表不置顶，避免盖住教师课件/PPT
   mainWindow.setAlwaysOnTop(false);
-  mainWindow.setSkipTaskbar(false);
+  // 只显示今日课表时，任务栏不出现图标
+  mainWindow.setSkipTaskbar(true);
   mainWindow.setBounds({
     x: area.x + area.width - RAIL_W,
     y: area.y,
     width: RAIL_W,
     height: area.height,
   });
-  if (!mainWindow.isVisible()) mainWindow.show();
   mainWindow.showInactive();
   applyingChrome = false;
-  if (tray) tray.setToolTip('教室大屏智控 · 右侧今日课表（点最大化可展示大屏）');
+  if (tray) tray.setToolTip('教室大屏智控 · 右侧今日课表（最小化进托盘 / 最大化展示大屏）');
 }
 
-/** 展示大屏（任务内容 / 用户点最大化） */
+/** 展示大屏（教师端任务 / 托盘唤起 / 用户点最大化） */
 function expandMain(payload) {
   if (!mainWindow || quitting) return;
   applyingChrome = true;
   uiPhase = 'board-full';
   docked = false;
   sendMode('full');
+  try {
+    if (mainWindow.isMinimized()) mainWindow.restore();
+  } catch {
+    /* ignore */
+  }
   mainWindow.setResizable(true);
-  mainWindow.setMinimizable(true); // 可再收成右侧课表
+  mainWindow.setMinimizable(true); // 最小化 → 托盘
   mainWindow.setMaximizable(true);
   mainWindow.setSkipTaskbar(false);
   mainWindow.setAlwaysOnTop(true);
@@ -225,7 +306,7 @@ function expandMain(payload) {
     }).show();
   }
   applyingChrome = false;
-  if (tray) tray.setToolTip('教室大屏智控 · 大屏展示中（最小化可收回课表）');
+  if (tray) tray.setToolTip('教室大屏智控 · 大屏展示中（最小化可隐藏到托盘）');
 }
 
 function httpJson(method, urlStr, bodyObj) {
@@ -279,6 +360,26 @@ function httpJson(method, urlStr, bodyObj) {
   });
 }
 
+/** 站点脚本若用后置摄像头约束失败，这里改成先开任意视频，远程观看才能连上 */
+function patchCameraAccess() {
+  if (!mainWindow) return;
+  const js = `
+    (() => {
+      const md = navigator.mediaDevices;
+      if (!md || md.__ccpPatched) return;
+      const orig = md.getUserMedia.bind(md);
+      md.getUserMedia = async (constraints) => {
+        const videoOnly = { video: true, audio: false };
+        try { return await orig(videoOnly); } catch (e1) {
+          try { return await orig(constraints || videoOnly); } catch (e2) { throw e1; }
+        }
+      };
+      md.__ccpPatched = true;
+    })();
+  `;
+  mainWindow.webContents.executeJavaScript(js, true).catch(() => {});
+}
+
 async function injectTokenAndReload(token) {
   if (!mainWindow) return;
   const js = `
@@ -311,6 +412,10 @@ function createWindow() {
   });
 
   applySetupChrome();
+  mainWindow.webContents.on('did-finish-load', () => {
+    const url = mainWindow.webContents.getURL() || '';
+    if (url.startsWith('http://') || url.startsWith('https://')) patchCameraAccess();
+  });
   mainWindow.loadFile(path.join(appRoot(), 'setup.html'));
 
   mainWindow.on('close', async (e) => {
@@ -331,33 +436,19 @@ function createWindow() {
       }
       return;
     }
-    const r = await dialog.showMessageBox(mainWindow, {
-      type: 'question',
-      buttons: ['收起为右侧课表', '退出程序', '取消'],
-      defaultId: 0,
-      cancelId: 2,
-      title: '教室大屏智控',
-      message: '要怎样处理窗口？',
-      detail: '收起后右侧仍显示今日课表；退出将关闭程序。',
-      icon: appIcon.isEmpty() ? undefined : appIcon,
-    });
-    if (r.response === 0) dockRail();
-    else if (r.response === 1) {
-      quitting = true;
-      app.quit();
-    }
+    // 登录后：关闭 = 隐藏到托盘待命（不占任务栏）
+    hideToTray();
   });
 
-  // 系统「最小化」：仅大屏模式下可用 → 收成右侧课表
+  // 「最小化」→ 隐藏到托盘
   mainWindow.on('minimize', (e) => {
     if (applyingChrome) return;
     e.preventDefault();
-    if (uiPhase === 'setup') return; // 已禁用，兜底
-    if (uiPhase === 'board-rail') return; // 已禁用
-    dockRail();
+    if (uiPhase === 'setup') return;
+    hideToTray();
   });
 
-  // 系统「最大化」：右侧课表时 → 展示大屏；已是大屏则保持最大化
+  // 「最大化」：右侧课表 / 托盘 → 展示大屏
   mainWindow.on('maximize', () => {
     if (applyingChrome) return;
     if (uiPhase === 'setup') {
@@ -368,20 +459,19 @@ function createWindow() {
       }
       return;
     }
-    if (uiPhase === 'board-rail' || docked) {
+    if (uiPhase === 'board-rail' || uiPhase === 'tray' || docked) {
       expandMain();
       return;
     }
-    // board-full：确保页面是大屏内容而不只是拉大课表条
     sendMode('full');
     docked = false;
     uiPhase = 'board-full';
     mainWindow.setMinimizable(true);
+    mainWindow.setSkipTaskbar(false);
   });
 
   mainWindow.on('unmaximize', () => {
     if (applyingChrome) return;
-    // 用户还原窗口：若在大屏，保持 full 模式的窗口态即可
     if (uiPhase === 'board-full') sendMode('full');
   });
 }
@@ -400,6 +490,7 @@ function createTray() {
     Menu.buildFromTemplate([
       { label: '展示大屏', click: () => expandMain() },
       { label: '右侧今日课表', click: () => dockRail() },
+      { label: '隐藏到托盘', click: () => hideToTray() },
       {
         label: '重新登录设置',
         click: () => {
@@ -419,19 +510,15 @@ function createTray() {
       },
     ]),
   );
-  tray.on('double-click', () => {
-    if (uiPhase === 'setup') mainWindow?.show();
-    else if (docked) expandMain();
-    else dockRail();
-  });
-  tray.on('click', () => {
+  const wakeFromTray = () => {
     if (uiPhase === 'setup') {
       mainWindow?.show();
       return;
     }
-    if (docked) expandMain();
-    else dockRail();
-  });
+    expandMain();
+  };
+  tray.on('double-click', wakeFromTray);
+  tray.on('click', wakeFromTray);
 }
 
 ipcMain.handle('setup-load-config', () => readConfig());
@@ -450,6 +537,15 @@ ipcMain.handle('setup-login-enter', async (_e, cfg) => {
     const saved = writeConfig(cfg || {});
     const boardUrl = buildBoardUrl(saved);
     if (!boardUrl) return { ok: false, error: '服务器地址无效' };
+    const origin = new URL(boardUrl).origin;
+    if (!saved.https && !global.__ccpOrigins?.has(origin)) {
+      const extra = path.join(path.dirname(process.execPath), 'camera-origins.txt');
+      fs.appendFileSync(extra, origin + '\n', 'utf8');
+      app.relaunch();
+      quitting = true;
+      app.exit(0);
+      return { ok: true, relaunch: true };
+    }
     const loginApi = new URL(boardUrl);
     loginApi.pathname = '/api/auth/login';
     loginApi.search = '';
@@ -463,12 +559,12 @@ ipcMain.handle('setup-login-enter', async (_e, cfg) => {
       storages: ['localstorage', 'cookies', 'indexdb'],
     });
 
-    // 登录后不最大化：直接进右侧今日课表待命
+    // 登录后右侧今日课表一直显示，直到点最小化才进托盘
     await mainWindow.loadURL(boardUrl);
     await injectTokenAndReload(data.token);
 
     const goRail = () => {
-      if (!quitting) dockRail();
+      if (!quitting && uiPhase !== 'board-full') dockRail();
     };
     mainWindow.webContents.once('did-finish-load', () => {
       setTimeout(goRail, 600);
@@ -481,16 +577,33 @@ ipcMain.handle('setup-login-enter', async (_e, cfg) => {
   }
 });
 
-// 教师端有任务：才展开大屏
+// 教师端有任务：自动弹出大屏；任务结束回到右侧课表（不进托盘）
 ipcMain.on('desktop-show', (_e, payload) => expandMain(payload || {}));
-ipcMain.on('desktop-hide', () => dockRail());
+ipcMain.on('desktop-hide', () => {
+  if (uiPhase === 'board-full' || uiPhase === 'tray') dockRail();
+});
 ipcMain.on('desktop-ready', () => {
   setTimeout(() => {
-    if (!quitting) dockRail();
+    if (!quitting && uiPhase !== 'board-full') dockRail();
   }, 800);
 });
 
 app.whenReady().then(() => {
+  try {
+    session.defaultSession.setPermissionRequestHandler((_wc, permission, callback) => {
+      callback(
+        permission === 'media' ||
+          permission === 'mediaKeySystem' ||
+          permission === 'notifications' ||
+          permission === 'display-capture',
+      );
+    });
+    session.defaultSession.setPermissionCheckHandler((_wc, permission) => {
+      return permission === 'media' || permission === 'display-capture' || permission === 'notifications';
+    });
+  } catch (e) {
+    crashLog(e);
+  }
   try {
     if (process.env.BOARD_AUTO_START === '1') {
       app.setLoginItemSettings({ openAtLogin: true, path: process.execPath });
@@ -498,8 +611,13 @@ app.whenReady().then(() => {
   } catch {
     /* ignore */
   }
-  createWindow();
-  createTray();
+  try {
+    createWindow();
+    createTray();
+  } catch (e) {
+    crashLog(e);
+    dialog.showErrorBox('教室大屏智控启动失败', String(e && e.message ? e.message : e));
+  }
 });
 
 app.on('window-all-closed', (e) => {

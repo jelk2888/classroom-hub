@@ -164,16 +164,23 @@ export function BoardPage({ className }: { className?: string }) {
       liveRef.current?.sendSignal('camera-ready', {}, 'teacher');
       return;
     }
-    try {
-      const stream = await getUserMediaSafe({
-        video: { facingMode: 'environment' },
-        audio: true,
-      });
-      streamRef.current = stream;
-      liveRef.current?.sendSignal('camera-ready', {}, 'teacher');
-    } catch {
-      /* ignore */
+    const tries: MediaStreamConstraints[] = [
+      { video: true, audio: false },
+      { video: { facingMode: 'user' }, audio: false },
+      { video: { facingMode: 'environment' }, audio: false },
+    ];
+    let last = '';
+    for (const c of tries) {
+      try {
+        const stream = await getUserMediaSafe(c);
+        streamRef.current = stream;
+        liveRef.current?.sendSignal('camera-ready', {}, 'teacher');
+        return;
+      } catch (e: any) {
+        last = e?.message || String(e);
+      }
     }
+    liveRef.current?.sendSignal('camera-error', { message: last || '无法打开摄像头' }, 'teacher');
   };
 
   const ensurePc = () => {
@@ -286,17 +293,8 @@ export function BoardPage({ className }: { className?: string }) {
   }, []);
 
   useEffect(() => {
-    // 一体机登录后：先显示课表，数秒后最小化到托盘，有任务再弹
-    const t = window.setTimeout(() => {
-      try {
-        desktop()?.hideMain?.();
-      } catch {
-        /* ignore */
-      }
-    }, 4000);
     scheduleIdleHide();
     return () => {
-      window.clearTimeout(t);
       if (idleHideTimer.current) window.clearTimeout(idleHideTimer.current);
     };
   }, []);
@@ -486,8 +484,8 @@ export function BoardPage({ className }: { className?: string }) {
         <audio ref={voiceAudioRef} autoPlay playsInline />
         <div className="board-tip muted">
           {railOnly
-            ? '右侧课表待命中 · 点窗口「最大化」或教师发任务时展示大屏'
-            : '大屏展示中 · 点「最小化」可收回为右侧今日课表'}
+            ? '右侧课表中 · 最小化进托盘；最大化或教师发任务时展示大屏'
+            : '大屏展示中 · 最小化/关闭可隐藏到托盘待命'}
         </div>
       </div>
 

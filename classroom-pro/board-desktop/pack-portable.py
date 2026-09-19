@@ -30,18 +30,12 @@ def main() -> None:
         shutil.rmtree(OUT)
     OUT.parent.mkdir(parents=True, exist_ok=True)
     print("Copying Electron runtime...")
-    shutil.copytree(
-        ELECTRON_DIST,
-        OUT,
-        ignore=shutil.ignore_patterns("resources"),
-    )
-    src_res = ELECTRON_DIST / "resources"
-    if src_res.exists():
-        shutil.copytree(src_res, OUT / "resources")
+    shutil.copytree(ELECTRON_DIST, OUT)
     if (OUT / "resources" / "default_app.asar").exists():
         (OUT / "resources" / "default_app.asar").unlink()
-    if (OUT / "resources" / "app").exists():
-        shutil.rmtree(OUT / "resources" / "app")
+    app_old = OUT / "resources" / "app"
+    if app_old.exists():
+        shutil.rmtree(app_old)
     APP_DIR.mkdir(parents=True, exist_ok=True)
 
     for name in FILES:
@@ -91,6 +85,21 @@ def main() -> None:
 
     print("OK", final_exe)
     print("Size MB:", round(final_exe.stat().st_size / 1024 / 1024, 1))
+    missing = []
+    for rel in [
+        "chrome_100_percent.pak",
+        "locales",
+        "resources/app/main.cjs",
+        "resources/app/preload.cjs",
+        "resources/app/setup.html",
+    ]:
+        if not (OUT / rel).exists():
+            missing.append(rel)
+    nfiles = sum(1 for p in OUT.rglob("*") if p.is_file())
+    print("files", nfiles)
+    if missing or nfiles < 40:
+        print("ERROR incomplete pack", missing, file=sys.stderr)
+        sys.exit(1)
 
 
 if __name__ == "__main__":
