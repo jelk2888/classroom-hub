@@ -280,7 +280,14 @@ function dockRail() {
             var p = document.querySelector('.board-page');
             if (p) p.classList.add('rail-only');
             var rail = document.querySelector('.board-tt-rail');
-            if (rail) { rail.style.display = 'flex'; rail.style.width = '100%'; rail.style.height = '100vh'; }
+            if (rail) {
+              rail.style.display = 'flex';
+              rail.style.width = '100%';
+              rail.style.height = '100vh';
+              rail.style.flexShrink = '0';
+            }
+            var main = document.querySelector('.board-main-col');
+            if (main) main.style.display = 'none';
           } catch (e) {}
         })();`,
         true,
@@ -322,6 +329,35 @@ function expandMain(payload) {
   }
   mainWindow.show();
   mainWindow.focus();
+  // 清掉「仅右侧课表」时留下的 rail-only / 内联宽度，恢复：主区 + 右侧窄课表
+  const restoreFullLayout = () => {
+    if (!mainWindow || quitting || uiPhase !== 'board-full') return;
+    mainWindow.webContents
+      .executeJavaScript(
+        `(() => {
+          try {
+            document.documentElement.classList.remove('ccp-rail-only');
+            document.body.classList.remove('ccp-rail-only');
+            var p = document.querySelector('.board-page');
+            if (p) p.classList.remove('rail-only');
+            var main = document.querySelector('.board-main-col');
+            if (main) { main.style.display = ''; main.style.width = ''; main.style.flex = ''; }
+            var rail = document.querySelector('.board-tt-rail');
+            if (rail) {
+              rail.style.display = '';
+              rail.style.width = '';
+              rail.style.height = '';
+              rail.style.flexShrink = '';
+            }
+            window.dispatchEvent(new Event('resize'));
+          } catch (e) {}
+        })();`,
+        true,
+      )
+      .catch(() => {});
+  };
+  setTimeout(restoreFullLayout, 50);
+  setTimeout(restoreFullLayout, 300);
   setTimeout(() => {
     if (uiPhase === 'board-full' && mainWindow && !quitting) {
       mainWindow.setAlwaysOnTop(false);

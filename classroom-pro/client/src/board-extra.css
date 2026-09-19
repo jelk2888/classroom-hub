@@ -62,12 +62,27 @@
 }
 .board-tt-rail {
   width: 220px;
+  max-width: 220px;
+  flex: 0 0 220px;
   flex-shrink: 0;
   background: linear-gradient(180deg, #0b3d36, #0a2a26);
   color: #e8f5f0;
   padding: 16px 12px;
   display: flex;
   flex-direction: column;
+  border-left: 1px solid #ffffff22;
+  box-sizing: border-box;
+}
+.board-page:not(.rail-only) .board-main-col {
+  display: flex !important;
+  flex: 1 1 auto !important;
+  min-width: 0;
+}
+.board-page:not(.rail-only) .board-tt-rail {
+  width: 220px !important;
+  max-width: 220px !important;
+  flex: 0 0 220px !important;
+  height: auto !important;
   border-left: 1px solid #ffffff22;
 }
 .board-tt-head {

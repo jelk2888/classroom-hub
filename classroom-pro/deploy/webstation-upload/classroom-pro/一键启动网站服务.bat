@@ -1,48 +1,47 @@
 @echo off
-chcp 65001 >nul
-title çœ‹ç­æ™ºæ§å° Pro - æœ¬æœºç½‘ç«™æœåŠ¡
 cd /d "%~dp0"
+title ¿´°àÖÇ¿ØÌ¨ Pro
 
 echo ========================================
-echo   çœ‹ç­æ™ºæ§å° Pro - ä¸€é”®å¯åŠ¨æœ¬æœºç½‘ç«™
+echo   ¿´°àÖÇ¿ØÌ¨ Pro - Ò»¼üÆô¶¯±¾»úÍøÕ¾
 echo ========================================
 echo.
 
 where node >nul 2>nul
 if errorlevel 1 (
-  echo [é”™è¯¯] æœªæ£€æµ‹åˆ° Node.jsã€‚
-  echo è¯·å…ˆå®‰è£… Node.js 18 æˆ–æ›´é«˜ç‰ˆæœ¬ï¼š
+  echo [´íÎó] Î´¼ì²âµ½ Node.js¡£
+  echo ÇëÏÈ°²×° Node.js 18 »ò¸ü¸ß°æ±¾£º
   echo   https://nodejs.org/
-  echo å®‰è£…å®Œæˆåé‡æ–°åŒå‡»æœ¬ç¨‹åºã€‚
+  echo °²×°Íê³ÉºóÖØĞÂË«»÷±¾³ÌĞò¡£
   echo.
   pause
   exit /b 1
 )
 
-for /f "tokens=*" %%v in ('node -v') do echo å·²æ£€æµ‹åˆ° Node %%v
+for /f "tokens=*" %%v in ('node -v') do echo ÒÑ¼ì²âµ½ Node %%v
 echo.
 
 if not exist "server\package.json" (
-  echo [é”™è¯¯] æœªæ‰¾åˆ° server ç›®å½•ï¼Œè¯·ç¡®è®¤æœ¬æ–‡ä»¶åœ¨ classroom-pro éƒ¨ç½²åŒ…æ ¹ç›®å½•ã€‚
+  echo [´íÎó] Î´ÕÒµ½ server Ä¿Â¼¡£Çë°Ñ±¾ÎÄ¼ş·ÅÔÚ²¿Êğ°ü¸ùÄ¿Â¼¡£
   pause
   exit /b 1
 )
 
 if not exist "client\dist\index.html" (
-  echo [é”™è¯¯] æœªæ‰¾åˆ° client\distï¼Œè¯·ä½¿ç”¨å®Œæ•´çš„ webstation ä¸Šä¼ åŒ…ã€‚
+  echo [´íÎó] Î´ÕÒµ½ client\dist¡£ÇëÊ¹ÓÃÍêÕû²¿Êğ°ü¡£
   pause
   exit /b 1
 )
 
-echo æ­£åœ¨æ£€æŸ¥ä¾èµ–...
+echo ÕıÔÚ¼ì²éÒÀÀµ...
 pushd server
 if exist "node_modules\express\package.json" (
-  echo ä¾èµ–å·²åœ¨æœ¬æ–‡ä»¶å¤¹å†…ã€‚
+  echo ÒÀÀµÒÑÔÚ±¾ÎÄ¼ş¼ĞÄÚ¡£
 ) else (
-  echo é¦–æ¬¡è¿è¡Œï¼Œæ­£åœ¨ä¸‹è½½ä¾èµ–ï¼ˆéœ€è¦è”ç½‘ï¼‰...
+  echo Ê×´ÎÔËĞĞ£¬ÕıÔÚÏÂÔØÒÀÀµ£¬ĞèÒªÁªÍø...
   call npm install --omit=dev
   if errorlevel 1 (
-    echo [é”™è¯¯] npm install å¤±è´¥ï¼Œè¯·æ£€æŸ¥ç½‘ç»œåé‡è¯•ã€‚
+    echo [´íÎó] npm install Ê§°Ü£¬Çë¼ì²éÍøÂçºóÖØÊÔ¡£
     popd
     pause
     exit /b 1
@@ -51,9 +50,8 @@ if exist "node_modules\express\package.json" (
 popd
 
 echo.
-echo æ­£åœ¨å¯åŠ¨ç½‘ç«™æœåŠ¡...
-echo æµè§ˆå™¨å°†è‡ªåŠ¨æ‰“å¼€ï¼›æ‰‹æœºè¯·è®¿é—®ä¸‹æ–¹æ‰“å°çš„å±€åŸŸç½‘åœ°å€ã€‚
-echo å…³é—­æœ¬çª—å£å³åœæ­¢æœåŠ¡ã€‚
+echo ÕıÔÚÆô¶¯ÍøÕ¾·şÎñ...
+echo ä¯ÀÀÆ÷½«×Ô¶¯´ò¿ª¡£¹Ø±Õ±¾´°¿Ú¼´Í£Ö¹·şÎñ¡£
 echo.
 
 set PORT=3789
@@ -61,5 +59,5 @@ start "" cmd /c "timeout /t 2 /nobreak >nul && start http://127.0.0.1:3789/"
 
 node server\index.js
 echo.
-echo æœåŠ¡å·²åœæ­¢ã€‚
+echo ·şÎñÒÑÍ£Ö¹¡£
 pause

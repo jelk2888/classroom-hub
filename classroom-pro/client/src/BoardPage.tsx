@@ -59,8 +59,32 @@ export function BoardPage({ className }: { className?: string }) {
 
   useEffect(() => {
     const off = desktop()?.onMode?.((mode: string) => {
-      setRailOnly(mode === 'rail');
-      if (mode === 'rail') loadToday();
+      const rail = mode === 'rail';
+      setRailOnly(rail);
+      // 展开大屏时清掉收起态留下的内联样式，保持：主区 + 右侧窄课表
+      if (!rail) {
+        try {
+          document.documentElement.classList.remove('ccp-rail-only');
+          document.body.classList.remove('ccp-rail-only');
+          document.querySelector('.board-page')?.classList.remove('rail-only');
+          const main = document.querySelector('.board-main-col') as HTMLElement | null;
+          if (main) {
+            main.style.display = '';
+            main.style.width = '';
+            main.style.flex = '';
+          }
+          const side = document.querySelector('.board-tt-rail') as HTMLElement | null;
+          if (side) {
+            side.style.display = '';
+            side.style.width = '';
+            side.style.height = '';
+          }
+        } catch {
+          /* ignore */
+        }
+      } else {
+        loadToday();
+      }
     });
     return () => {
       if (typeof off === 'function') off();
@@ -70,6 +94,16 @@ export function BoardPage({ className }: { className?: string }) {
   useEffect(() => {
     document.documentElement.classList.toggle('ccp-rail-only', railOnly);
     document.body.classList.toggle('ccp-rail-only', railOnly);
+    if (!railOnly) {
+      const side = document.querySelector('.board-tt-rail') as HTMLElement | null;
+      if (side) {
+        side.style.width = '';
+        side.style.height = '';
+        side.style.display = '';
+      }
+      const main = document.querySelector('.board-main-col') as HTMLElement | null;
+      if (main) main.style.display = '';
+    }
     return () => {
       document.documentElement.classList.remove('ccp-rail-only');
       document.body.classList.remove('ccp-rail-only');

@@ -48,9 +48,13 @@ if (Test-Path -LiteralPath $installerHint) {
   }
 }
 
+# 先按 Windows 编码写出 bat/ps1，再复制进上传包（避免 UTF-8 无 BOM 导致双击报错）
+python (Join-Path $PSScriptRoot "_write_launchers.py")
+if ($LASTEXITCODE -ne 0) { throw "write launchers failed" }
+
 # 说明与 Windows 启动脚本（整份复制，避免中文文件名匹配失败）
 Get-ChildItem -LiteralPath $PSScriptRoot -File | Where-Object {
-  $_.Extension -in ".txt", ".bat", ".ps1" -and $_.Name -notlike "pack-*"
+  $_.Extension -in ".txt", ".bat", ".ps1" -and $_.Name -notlike "pack-*" -and $_.Name -notlike "_*"
 } | ForEach-Object {
   Copy-Item -LiteralPath $_.FullName -Destination (Join-Path $Out $_.Name) -Force
 }
