@@ -254,7 +254,7 @@ app.post('/api/auth/change-password', auth, requireClass, (req, res) => {
     bcrypt.hashSync(String(newPassword), 10),
     req.classRow.id,
   );
-  res.json({ ok: true });
+  res.json({ ok: true, message: '班级登录密码已修改' });
 });
 
 app.get('/api/me', auth, requireClass, (req, res) => {
@@ -417,19 +417,27 @@ app.get('/api/students/template', (_req, res) => {
 // ---------- Settings / backup ----------
 app.put('/api/settings', auth, requireClass, (req, res) => {
   const { name, call_template, voice_repeat, voice_rate, voice_pitch } = req.body || {};
+  let nextName = null;
+  if (name !== undefined && name !== null) {
+    nextName = String(name).trim();
+    if (!nextName) return res.status(400).json({ error: '班级名称不能为空' });
+  }
   db.prepare(
     `UPDATE classes SET name=COALESCE(?, name), call_template=COALESCE(?, call_template),
      voice_repeat=COALESCE(?, voice_repeat), voice_rate=COALESCE(?, voice_rate),
      voice_pitch=COALESCE(?, voice_pitch) WHERE id=?`,
   ).run(
-    name ?? null,
+    nextName,
     call_template ?? null,
     voice_repeat ?? null,
     voice_rate ?? null,
     voice_pitch ?? null,
     req.classRow.id,
   );
-  res.json({ ok: true });
+  const updated = db
+    .prepare('SELECT id, code, name, school FROM classes WHERE id=?')
+    .get(req.classRow.id);
+  res.json({ ok: true, class: updated });
 });
 
 app.get('/api/backup', auth, requireClass, (req, res) => {
@@ -1398,6 +1406,9 @@ app.put('/api/admin/classes/:id', auth, requireAdmin, (req, res) => {
     if (clash) return res.status(400).json({ error: '班级码已被占用' });
   }
   const nextName = typeof name === 'string' && name.trim() ? name.trim() : row.name;
+  if (typeof name === 'string' && !name.trim()) {
+    return res.status(400).json({ error: '班级名称不能为空' });
+  }
   const nextSchool = typeof school === 'string' ? school.trim() : row.school;
   let nextStatus = row.status;
   if (status && ['active', 'pending', 'disabled'].includes(status)) nextStatus = status;

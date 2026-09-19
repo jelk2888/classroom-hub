@@ -1465,8 +1465,37 @@ function PointsMod({ students, reload }: any) {
 function SettingsMod({ students, classInfo, setClassInfo, reload, announceList = [], setAnnounce }: any) {
   const [csv, setCsv] = useState('');
   const [ann, setAnn] = useState('');
-  const [pwd, setPwd] = useState({ oldPassword: '', newPassword: '' });
+  const [pwd, setPwd] = useState({ oldPassword: '', newPassword: '', confirm: '' });
   const announceRows = Array.isArray(announceList) ? announceList : [];
+
+  const saveClassName = async () => {
+    const name = String(classInfo.name || '').trim();
+    if (!name) return alert('班级名称不能为空');
+    try {
+      const d = await api('/api/settings', { method: 'PUT', body: JSON.stringify({ name }) });
+      if (d.class) setClassInfo({ ...classInfo, ...d.class, name: d.class.name });
+      else setClassInfo({ ...classInfo, name });
+      alert('班级名称已保存');
+    } catch (e: any) {
+      alert(e.message || '保存失败');
+    }
+  };
+
+  const changeClassPassword = async () => {
+    if (!pwd.oldPassword) return alert('请填写原登录密码');
+    if (pwd.newPassword.length < 6) return alert('新密码至少 6 位');
+    if (pwd.newPassword !== pwd.confirm) return alert('两次新密码不一致');
+    try {
+      await api('/api/auth/change-password', {
+        method: 'POST',
+        body: JSON.stringify({ oldPassword: pwd.oldPassword, newPassword: pwd.newPassword }),
+      });
+      setPwd({ oldPassword: '', newPassword: '', confirm: '' });
+      alert('班级登录密码已修改，下次请用新密码登录');
+    } catch (e: any) {
+      alert(e.message || '修改失败');
+    }
+  };
 
   return (
     <div className="panel">
@@ -1474,12 +1503,19 @@ function SettingsMod({ students, classInfo, setClassInfo, reload, announceList =
         <h3>设置 / 名单 / 公告 / 备份</h3>
       </div>
       <div className="panel-b stack">
-        <label>班级昵称</label>
-        <input
-          value={classInfo.name}
-          onChange={(e) => setClassInfo({ ...classInfo, name: e.target.value })}
-          onBlur={() => api('/api/settings', { method: 'PUT', body: JSON.stringify({ name: classInfo.name }) })}
-        />
+        <label>班级名称</label>
+        <div className="toolbar">
+          <input
+            value={classInfo.name}
+            onChange={(e) => setClassInfo({ ...classInfo, name: e.target.value })}
+            placeholder="例如：高一（3）班"
+            style={{ minWidth: 220 }}
+          />
+          <button className="btn primary" type="button" onClick={saveClassName}>
+            保存班级名称
+          </button>
+        </div>
+        <p className="muted">登录仍使用班级码 {classInfo.code}，改名称不影响登录码。</p>
         <label>语速 / 音调 / 播报次数</label>
         <div className="toolbar">
           <input
@@ -1609,24 +1645,31 @@ function SettingsMod({ students, classInfo, setClassInfo, reload, announceList =
           </div>
         )}
 
-        <label>修改密码</label>
+        <label>修改班级登录密码</label>
         <div className="toolbar">
-          <input type="password" placeholder="原密码" value={pwd.oldPassword} onChange={(e) => setPwd({ ...pwd, oldPassword: e.target.value })} />
-          <input type="password" placeholder="新密码" value={pwd.newPassword} onChange={(e) => setPwd({ ...pwd, newPassword: e.target.value })} />
-          <button
-            className="btn"
-            type="button"
-            onClick={async () => {
-              try {
-                await api('/api/auth/change-password', { method: 'POST', body: JSON.stringify(pwd) });
-                alert('已修改');
-              } catch (e: any) {
-                alert(e.message);
-              }
-            }}
-          >
-            修改
+          <input
+            type="password"
+            placeholder="原密码"
+            value={pwd.oldPassword}
+            onChange={(e) => setPwd({ ...pwd, oldPassword: e.target.value })}
+          />
+          <input
+            type="password"
+            placeholder="新密码（至少 6 位）"
+            value={pwd.newPassword}
+            onChange={(e) => setPwd({ ...pwd, newPassword: e.target.value })}
+          />
+          <input
+            type="password"
+            placeholder="确认新密码"
+            value={pwd.confirm}
+            onChange={(e) => setPwd({ ...pwd, confirm: e.target.value })}
+          />
+          <button className="btn primary" type="button" onClick={changeClassPassword}>
+            保存新密码
           </button>
+        </div>
+        <div className="toolbar">
           <button
             className="btn"
             type="button"

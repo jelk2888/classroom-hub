@@ -14,6 +14,7 @@ export function AdminPage({ onLogout }: { onLogout: () => void }) {
   const [newPwd2, setNewPwd2] = useState('');
   const [edit, setEdit] = useState<any>(null);
   const [editPwd, setEditPwd] = useState('');
+  const [editPwd2, setEditPwd2] = useState('');
   const [busy, setBusy] = useState(false);
 
   const load = async () => {
@@ -96,7 +97,10 @@ export function AdminPage({ onLogout }: { onLogout: () => void }) {
 
   const saveClass = async () => {
     if (!edit) return;
-    if (editPwd && editPwd.length < 6) return alert('班级密码至少 6 位');
+    if (editPwd || editPwd2) {
+      if (editPwd.length < 6) return alert('班级登录密码至少 6 位');
+      if (editPwd !== editPwd2) return alert('两次新密码不一致');
+    }
     setBusy(true);
     try {
       await api(`/api/admin/classes/${edit.id}`, {
@@ -111,8 +115,9 @@ export function AdminPage({ onLogout }: { onLogout: () => void }) {
       });
       setEdit(null);
       setEditPwd('');
+      setEditPwd2('');
       await load();
-      alert('班级信息已保存');
+      alert(editPwd ? '班级名称与登录密码已保存' : '班级信息已保存');
     } catch (e: any) {
       alert(e.message || '保存失败');
     } finally {
@@ -290,9 +295,10 @@ export function AdminPage({ onLogout }: { onLogout: () => void }) {
                           onClick={() => {
                             setEdit({ ...c });
                             setEditPwd('');
+                            setEditPwd2('');
                           }}
                         >
-                          编辑
+                          改名称/密码
                         </button>{' '}
                         {c.status !== 'active' && (
                           <button className="btn ok" type="button" onClick={() => setStatus(c.id, 'active')}>
@@ -358,7 +364,7 @@ export function AdminPage({ onLogout }: { onLogout: () => void }) {
         >
           <div className="panel" style={{ width: 'min(480px, 100%)', margin: 0 }} onClick={(e) => e.stopPropagation()}>
             <div className="panel-h">
-              <h3>编辑班级</h3>
+              <h3>修改班级名称 / 登录密码</h3>
               <button className="btn" type="button" onClick={() => setEdit(null)}>
                 关闭
               </button>
@@ -366,7 +372,7 @@ export function AdminPage({ onLogout }: { onLogout: () => void }) {
             <div className="panel-b stack">
               <label>班级码</label>
               <input value={edit.code} onChange={(e) => setEdit({ ...edit, code: e.target.value })} />
-              <label>班级昵称</label>
+              <label>班级名称</label>
               <input value={edit.name} onChange={(e) => setEdit({ ...edit, name: e.target.value })} />
               <label>学校</label>
               <input value={edit.school} onChange={(e) => setEdit({ ...edit, school: e.target.value })} />
@@ -376,12 +382,19 @@ export function AdminPage({ onLogout }: { onLogout: () => void }) {
                 <option value="pending">待审 pending</option>
                 <option value="disabled">禁用 disabled</option>
               </select>
-              <label>新登录密码（留空则不改）</label>
+              <label>新登录密码（留空则不改，至少 6 位）</label>
               <input
                 type="password"
                 value={editPwd}
                 onChange={(e) => setEditPwd(e.target.value)}
-                placeholder="至少 6 位"
+                placeholder="新密码"
+              />
+              <label>确认新登录密码</label>
+              <input
+                type="password"
+                value={editPwd2}
+                onChange={(e) => setEditPwd2(e.target.value)}
+                placeholder="再输入一次"
               />
               <div style={{ display: 'flex', gap: 8 }}>
                 <button className="btn primary" type="button" disabled={busy} onClick={saveClass}>
