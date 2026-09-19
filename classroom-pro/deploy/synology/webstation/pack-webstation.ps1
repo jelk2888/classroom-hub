@@ -19,8 +19,11 @@ robocopy (Join-Path $Root "server") (Join-Path $Out "server") /E /NFL /NDL /NJH 
 if ($LASTEXITCODE -ge 8) { throw "robocopy server failed" }
 
 New-Item -ItemType Directory -Path (Join-Path $Out "client\dist") -Force | Out-Null
-robocopy (Join-Path $Root "client\dist") (Join-Path $Out "client\dist") /E /NFL /NDL /NJH /NJS /nc /ns /np | Out-Null
+# 网页静态资源；安装包只放在 server\downloads，不进 client\dist，避免重复约 130MB
+robocopy (Join-Path $Root "client\dist") (Join-Path $Out "client\dist") /E /NFL /NDL /NJH /NJS /nc /ns /np /XD downloads | Out-Null
 if ($LASTEXITCODE -ge 8) { throw "robocopy dist failed" }
+$dupDl = Join-Path $Out "client\dist\downloads"
+if (Test-Path $dupDl) { Remove-Item $dupDl -Recurse -Force }
 
 Copy-Item (Join-Path $PSScriptRoot "WebStation-guide.md") (Join-Path $Out "README-WebStation.md") -Force
 

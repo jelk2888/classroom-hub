@@ -37,7 +37,16 @@ function publishLive(classId, type, payload = {}) {
     created_at: new Date().toISOString(),
   };
   broadcastLive(classId, event);
-  wakeBoards(classId, { title: payload.names?.[0] || payload.name || payload.display || type, ...payload });
+  // 仅课堂任务弹出大屏；登录连线、摄像头开关不弹
+  const WAKE_TYPES = new Set(['call', 'roll', 'timer', 'announce', 'homework', 'discipline', 'shout', 'seats']);
+  if (WAKE_TYPES.has(type)) {
+    wakeBoards(classId, {
+      type,
+      title: payload.names?.[0] || payload.name || payload.display || payload.title || type,
+      subtitle: payload.subtitle || payload.texts?.[0] || payload.text || '',
+      ...payload,
+    });
+  }
   return event;
 }
 
@@ -688,15 +697,38 @@ app.get('/api/picker/history', auth, requireClass, (req, res) => {
 });
 
 app.post('/api/picker', auth, requireClass, (req, res) => {
-  const { studentId } = req.body || {};
-  const stu = db.prepare('SELECT * FROM students WHERE id=? AND class_id=?').get(studentId, req.classRow.id);
-  if (!stu) return res.status(400).json({ error: '学生不存在' });
-  db.prepare(
+  const body = req.body || {};
+  const ids = Array.isArray(body.studentIds)
+    ? body.studentIds
+    : body.studentId != null
+      ? [body.studentId]
+      : [];
+  if (!ids.length) return res.status(400).json({ error: '请选择学生' });
+  const students = [];
+  const insert = db.prepare(
     'INSERT INTO picker_history (class_id, student_id, student_name) VALUES (?, ?, ?)',
-  ).run(req.classRow.id, stu.id, stu.name);
+  );
+  for (const studentId of ids) {
+    const stu = db.prepare('SELECT * FROM students WHERE id=? AND class_id=?').get(studentId, req.classRow.id);
+    if (!stu) return res.status(400).json({ error: '学生不存在' });
+    insert.run(req.classRow.id, stu.id, stu.name);
+    students.push(stu);
+  }
   trackModule(req.classRow.id, 'picker');
-  publishLive(req.classRow.id, 'roll', { name: stu.name, studentId: stu.id });
-  res.json({ ok: true, student: stu });
+  const names = students.map((s) => s.name);
+  const spinMs = Math.max(800, Math.min(8000, Number(body.spinMs) || 2000));
+  const candidates = Array.isArray(body.candidates)
+    ? body.candidates.map(String).filter(Boolean)
+    : names;
+  publishLive(req.classRow.id, 'roll', {
+    names,
+    name: names.join('、'),
+    studentIds: students.map((s) => s.id),
+    candidates,
+    spinMs,
+    count: names.length,
+  });
+  res.json({ ok: true, students, student: students[0] });
 });
 
 app.delete('/api/picker/history', auth, requireClass, (req, res) => {

@@ -87,11 +87,7 @@ export function bindWsSession(ws, classId, role) {
   wsByClass.get(id).add(ws);
   wsSend(ws, { type: 'hello', payload: { classId: id, role, presence: getClassPresence(id) } });
   broadcastPresence(id);
-
-  // 教师端重新上线时轻量唤醒大屏，提示已自动连上
-  if (role === 'teacher' && getClassPresence(id).boardOnline) {
-    wakeBoards(id, { title: '教师端已连接', subtitle: '可直接发任务', type: 'link' });
-  }
+  // 教师端上线只同步状态，不弹大屏
 }
 
 export function addSseClient(classId, res) {

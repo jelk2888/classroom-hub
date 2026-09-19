@@ -16,9 +16,10 @@
 
 二、教室一体机
 --------------------------------
-安装包已在本文件夹内：
+安装包只有一份，在：
   server\downloads\教室大屏智控-安装程序.exe
-教师登录网站后，首页也可以下载同一安装包。
+（client 目录里不会再放安装包，避免重复占空间）
+教师登录网站后，首页「下载一体机安装程序」也是下载上面这一份。
 安装后登录同一班级。摄像头默认关闭，由教师端再打开。
 
 三、放到群晖 Web Station
@@ -31,8 +32,9 @@
 
 四、本文件夹里有什么
 --------------------------------
-  package.json          启动入口
-  client\dist\          已构建好的网页，不用再编译
-  server\               接口程序；server\node_modules 为运行依赖
-  server\downloads\     一体机安装包
-  一键启动网站服务.bat  Windows 双击启动
+  package.json              启动入口
+  client\dist\              已构建好的网页（不含安装包）
+  server\                   接口程序；含 node_modules 时可离线启动
+  server\downloads\         一体机安装包（仅此一份）
+  一键启动网站服务.bat      Windows 双击启动
+  本文件夹使用说明.txt      本说明

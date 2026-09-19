@@ -115,8 +115,15 @@ export function Workspace({ cls, onLogout }: { cls: any; onLogout: () => void })
           });
           wakeBoard({ title: names[0], subtitle: p.texts?.[0], type: 'call', names, speakParts: p.speakParts });
         } else if (msg.type === 'roll') {
-          setLive({ type: 'roll', title: p.name, subtitle: '请回答' });
-          wakeBoard({ title: p.name, subtitle: '请回答', type: 'roll' });
+          // 教师端点名区自己做滚动；这里只把同机浏览器大屏叫醒
+          wakeBoard({
+            title: p.name || (p.names || []).join('、') || '点名',
+            subtitle: p.subtitle || '请回答',
+            type: 'roll',
+            names: p.names,
+            candidates: p.candidates,
+            spinMs: p.spinMs,
+          });
         } else if (msg.type === 'timer') {
           setLive({ type: 'timer', title: p.display, subtitle: p.subtitle || p.mode });
           wakeBoard({ title: p.display, subtitle: p.subtitle, type: 'timer' });
@@ -849,42 +856,88 @@ function HomeworkMod({ students, setLive }: any) {
 }
 
 function PickerMod({ students, cols, setCols, setLive }: any) {
-  const [cur, setCur] = useState('— 点击点名 —');
+  const [cur, setCur] = useState('— 点击开始点名 —');
   const [busy, setBusy] = useState(false);
+  const [pickCount, setPickCount] = useState(1);
   /** 允许重复点名：默认关（从未点过的同学中抽） */
   const [allowRepeat, setAllowRepeat] = useState(false);
   const [history, setHistory] = useState<any[]>([]);
+  const spinRef = useRef<number | null>(null);
 
   const load = async () => setHistory((await api('/api/picker/history')).history);
   useEffect(() => {
     load();
+    return () => {
+      if (spinRef.current) window.clearTimeout(spinRef.current);
+    };
   }, []);
 
   const picked = useMemo(() => new Set(history.map((h) => h.student_id)), [history]);
   const pool = students.filter((s: any) => (allowRepeat ? true : !picked.has(s.id)));
+  const maxCount = Math.max(1, pool.length || 1);
 
   const pickOnce = async () => {
     if (busy) return;
-    if (!pool.length) {
+    const n = Math.max(1, Math.min(pickCount, pool.length || 0));
+    if (!pool.length || n < 1) {
       alert(allowRepeat ? '暂无学生' : '本轮已全部点过，请点「重置已点」或打开「允许重复点名」');
       return;
     }
-    const p = pool[Math.floor(Math.random() * pool.length)];
-    if (!p) return;
     setBusy(true);
+    const shuffled = [...pool].sort(() => Math.random() - 0.5);
+    const winners = shuffled.slice(0, n);
+    const candidates = pool.map((s: any) => s.name);
+    const spinMs = 2000;
     try {
-      // 只展示最终结果，不滚动中间过程
-      setCur(p.name);
-      await api('/api/picker', { method: 'POST', body: JSON.stringify({ studentId: p.id }) });
-      setLive({ type: 'roll', title: p.name, subtitle: '请回答' });
-      pushToBoard({
-        title: p.name,
-        subtitle: '请回答',
+      // 先通知大屏开始滚动，再本页同步动画
+      await api('/api/picker', {
+        method: 'POST',
+        body: JSON.stringify({
+          studentIds: winners.map((s: any) => s.id),
+          candidates,
+          spinMs,
+        }),
+      });
+    } catch (e: any) {
+      setBusy(false);
+      alert(e?.message || '点名失败');
+      return;
+    }
+
+    const started = Date.now();
+    await new Promise<void>((resolve) => {
+      const tick = () => {
+        const shown = Array.from(
+          { length: n },
+          () => candidates[Math.floor(Math.random() * candidates.length)] || '·',
+        );
+        setCur(shown.join(n > 3 ? '、' : '　'));
+        setLive({
+          type: 'roll',
+          title: shown.join(n > 3 ? '、' : '　'),
+          subtitle: n > 1 ? `抽取 ${n} 人中…` : '抽取中…',
+        });
+        if (Date.now() - started < spinMs) {
+          spinRef.current = window.setTimeout(tick, 55);
+        } else {
+          resolve();
+        }
+      };
+      tick();
+    });
+
+    try {
+      const names = winners.map((s: any) => s.name);
+      const title = names.join(names.length > 3 ? '、' : '　');
+      setCur(title);
+      setLive({
         type: 'roll',
-        speakText: `${p.name}同学`,
+        title,
+        subtitle: names.length > 1 ? `共 ${names.length} 人 · 请回答` : '请回答',
       });
       await load();
     } finally {
+      if (spinRef.current) window.clearTimeout(spinRef.current);
       setBusy(false);
     }
   };
@@ -896,18 +949,35 @@ function PickerMod({ students, cols, setCols, setLive }: any) {
       </div>
       <div className="panel-b">
         <div className="live" style={{ minHeight: 160, marginBottom: 12, borderRadius: 14 }}>
-          <div className="t">{cur}</div>
+          <div className="k">{busy ? 'ROLLING' : 'ROLL'}</div>
+          <div className="t" style={{ fontSize: cur.length > 12 ? 28 : 36, lineHeight: 1.35 }}>
+            {cur}
+          </div>
+          <div className="s">{busy ? '名字滚动中，约 2 秒揭晓' : '可设置每次点名人数'}</div>
         </div>
         <div className="toolbar">
+          <label className="muted" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            每次人数
+            <input
+              type="number"
+              min={1}
+              max={Math.max(1, students.length)}
+              value={pickCount}
+              disabled={busy}
+              onChange={(e) => setPickCount(Math.max(1, Math.min(99, Number(e.target.value) || 1)))}
+              style={{ width: 72 }}
+            />
+          </label>
           <button className="btn primary" type="button" disabled={busy} onClick={pickOnce}>
-            {busy ? '点名中…' : '点名'}
+            {busy ? '抽取中…' : pickCount > 1 ? `点名 ${Math.min(pickCount, maxCount)} 人` : '点名'}
           </button>
           <button
             className="btn"
             type="button"
+            disabled={busy}
             onClick={async () => {
               await api('/api/picker/history', { method: 'DELETE' });
-              setCur('— 点击点名 —');
+              setCur('— 点击开始点名 —');
               load();
             }}
           >
@@ -916,6 +986,7 @@ function PickerMod({ students, cols, setCols, setLive }: any) {
           <button
             className={`btn ${allowRepeat ? 'active' : ''}`}
             type="button"
+            disabled={busy}
             title={allowRepeat ? '当前允许抽到已点过的同学' : '当前只从未点过的同学中抽'}
             onClick={() => setAllowRepeat((v) => !v)}
           >
@@ -929,7 +1000,7 @@ function PickerMod({ students, cols, setCols, setLive }: any) {
             ))}
           </select>
           <span className="muted">
-            已点 {picked.size} / {students.length}
+            可抽 {pool.length} 人 · 已点 {picked.size} / {students.length}
             {!allowRepeat && pool.length === 0 && picked.size > 0 ? ' · 请重置或开重复' : ''}
           </span>
         </div>

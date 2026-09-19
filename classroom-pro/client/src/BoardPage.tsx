@@ -50,13 +50,18 @@ export function BoardPage({ className }: { className?: string }) {
   const liveRef = useRef<ReturnType<typeof connectLive> | null>(null);
   const flashTimer = useRef<number | null>(null);
   const idleHideTimer = useRef<number | null>(null);
+  const rollTimer = useRef<number | null>(null);
   const periodMap = useRef<Record<string, string>>({});
   const [railOnly, setRailOnly] = useState(false);
 
   const desktop = () => (window as any).classroomDesktop;
+  const EXPAND_TYPES = new Set(['call', 'roll', 'timer', 'announce', 'homework', 'discipline', 'shout', 'seats', 'voice']);
 
   useEffect(() => {
-    const off = desktop()?.onMode?.((mode: string) => setRailOnly(mode === 'rail'));
+    const off = desktop()?.onMode?.((mode: string) => {
+      setRailOnly(mode === 'rail');
+      if (mode === 'rail') loadToday();
+    });
     return () => {
       if (typeof off === 'function') off();
     };
@@ -91,25 +96,66 @@ export function BoardPage({ className }: { className?: string }) {
     }, IDLE_HIDE_MS);
   };
 
-  const flash = (next: Live) => {
+  const flash = (next: Live, opts?: { expand?: boolean }) => {
     setLive({ ...next, flash: true });
     if (flashTimer.current) window.clearTimeout(flashTimer.current);
     flashTimer.current = window.setTimeout(() => setLive((s) => ({ ...s, flash: false })), 1200);
     document.title = `📣 ${next.title}`;
-    try {
-      window.focus();
-    } catch {
-      /* ignore */
+    const shouldExpand = opts?.expand !== false && EXPAND_TYPES.has(next.type);
+    if (shouldExpand) {
+      try {
+        window.focus();
+      } catch {
+        /* ignore */
+      }
+      try {
+        desktop()?.showMain?.({ title: next.title, subtitle: next.subtitle });
+      } catch {
+        /* ignore */
+      }
+      if (document.hidden && 'Notification' in window && Notification.permission === 'granted') {
+        new Notification(next.title, { body: next.subtitle || '教室大屏有新任务' });
+      }
+      scheduleIdleHide();
     }
-    try {
-      desktop()?.showMain?.({ title: next.title, subtitle: next.subtitle });
-    } catch {
-      /* ignore */
-    }
-    if (document.hidden && 'Notification' in window && Notification.permission === 'granted') {
-      new Notification(next.title, { body: next.subtitle || '教室大屏有新任务' });
-    }
-    scheduleIdleHide();
+  };
+
+  const playRoll = (p: any) => {
+    const finals: string[] = Array.isArray(p.names) && p.names.length ? p.names : p.name ? [String(p.name)] : [];
+    if (!finals.length) return;
+    const pool: string[] =
+      Array.isArray(p.candidates) && p.candidates.length ? p.candidates.map(String) : finals;
+    const spinMs = Math.max(800, Math.min(8000, Number(p.spinMs) || 2000));
+    if (rollTimer.current) window.clearTimeout(rollTimer.current);
+    flash({ type: 'roll', title: '点名中…', subtitle: '名字滚动抽取中' });
+    const started = Date.now();
+    const tick = () => {
+      const n = finals.length;
+      const shown = Array.from({ length: n }, () => pool[Math.floor(Math.random() * pool.length)] || '·');
+      setLive({
+        type: 'roll',
+        title: shown.join('　'),
+        subtitle: n > 1 ? `抽取 ${n} 人中…` : '抽取中…',
+        flash: true,
+      });
+      if (Date.now() - started < spinMs) {
+        rollTimer.current = window.setTimeout(tick, 55);
+        return;
+      }
+      const title = finals.join(finals.length > 3 ? '、' : '　');
+      setLive({
+        type: 'roll',
+        title,
+        subtitle: finals.length > 1 ? `共 ${finals.length} 人 · 请回答` : '请回答',
+        flash: true,
+      });
+      speakQueue(
+        finals.map((name) => `${name}同学`),
+        { times: 1 },
+      );
+      scheduleIdleHide();
+    };
+    tick();
   };
 
   const loadToday = async () => {
@@ -229,6 +275,8 @@ export function BoardPage({ className }: { className?: string }) {
   const handleLive = (msg: { type: string; payload?: any }) => {
     const p = msg.payload || {};
     if (msg.type === 'wake') {
+      // 登录连线 / 摄像头不弹大屏
+      if (p.type === 'link' || p.type === 'camera' || p.action === 'start' || p.action === 'stop') return;
       if (p.type === 'call' || p.names) {
         const names: string[] = p.names || [];
         flash({
@@ -238,15 +286,19 @@ export function BoardPage({ className }: { className?: string }) {
         });
         return;
       }
-      if (p.type === 'camera') return;
-      if (p.title) flash({ type: p.type || 'wake', title: p.title, subtitle: p.subtitle || p.text || '' });
+      if (p.type === 'roll') {
+        playRoll(p);
+        return;
+      }
+      if (p.type && EXPAND_TYPES.has(p.type) && p.title) {
+        flash({ type: p.type, title: p.title, subtitle: p.subtitle || p.text || '' });
+      }
       return;
     }
     if (msg.type === 'call') {
       playCall(p);
     } else if (msg.type === 'roll') {
-      flash({ type: 'roll', title: p.name, subtitle: '请回答' });
-      speak(`${p.name}同学`);
+      playRoll(p);
     } else if (msg.type === 'timer') {
       flash({ type: 'timer', title: p.display, subtitle: p.subtitle || '计时' });
       if (p.display === '00:00' || p.subtitle === '时间到') speak('时间到');
@@ -403,13 +455,20 @@ export function BoardPage({ className }: { className?: string }) {
         });
         return;
       }
-      if (payload?.type === 'camera') return;
-      if (payload?.title) {
+      if (payload?.type === 'camera' || payload?.type === 'link') return;
+      if (payload?.type === 'roll') {
+        playRoll(payload);
+        return;
+      }
+      if (payload?.type && EXPAND_TYPES.has(payload.type) && payload?.title) {
         flash({
-          type: payload.type || 'wake',
+          type: payload.type,
           title: payload.title,
           subtitle: payload.subtitle || '教师端有新任务',
         });
+      } else if (!payload?.type && payload?.title) {
+        // 无类型的旧唤醒：不当作连线弹窗
+        return;
       } else {
         try {
           window.focus();

@@ -182,15 +182,26 @@ def compile_stub(csc: Path, stub_exe: Path, cs_file: Path) -> None:
 
 
 def copy_to_downloads(setup_exe: Path) -> None:
+    # 只放一份到 server/downloads，网站 /downloads 由此提供；不要再拷到 client 以免重复
     targets = [
         ROOT.parent / "server" / "downloads",
-        ROOT.parent / "client" / "public" / "downloads",
     ]
     for d in targets:
         d.mkdir(parents=True, exist_ok=True)
         dest = d / setup_exe.name
         shutil.copy2(setup_exe, dest)
         print("Copied ->", dest)
+    # 清掉旧的重复副本（若有）
+    for stale in (
+        ROOT.parent / "client" / "public" / "downloads" / setup_exe.name,
+        ROOT.parent / "client" / "dist" / "downloads" / setup_exe.name,
+    ):
+        if stale.exists():
+            try:
+                stale.unlink()
+                print("Removed duplicate ->", stale)
+            except OSError:
+                pass
 
 
 def main() -> None:

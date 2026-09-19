@@ -236,7 +236,6 @@ function dockRail() {
   applyingChrome = true;
   uiPhase = 'board-rail';
   docked = true;
-  sendMode('rail');
   try {
     if (mainWindow.isMinimized()) mainWindow.restore();
   } catch {
@@ -260,8 +259,36 @@ function dockRail() {
     width: RAIL_W,
     height: area.height,
   });
-  mainWindow.showInactive();
+  // showInactive 在从托盘恢复时经常不重绘 → 空白框；用 show 再刷一次布局
+  mainWindow.show();
+  sendMode('rail');
   applyingChrome = false;
+  const refreshRail = () => {
+    if (!mainWindow || quitting || uiPhase !== 'board-rail') return;
+    try {
+      mainWindow.webContents.invalidate();
+    } catch {
+      /* ignore */
+    }
+    mainWindow.webContents
+      .executeJavaScript(
+        `(() => {
+          try {
+            window.dispatchEvent(new Event('resize'));
+            document.documentElement.classList.add('ccp-rail-only');
+            document.body.classList.add('ccp-rail-only');
+            var p = document.querySelector('.board-page');
+            if (p) p.classList.add('rail-only');
+            var rail = document.querySelector('.board-tt-rail');
+            if (rail) { rail.style.display = 'flex'; rail.style.width = '100%'; rail.style.height = '100vh'; }
+          } catch (e) {}
+        })();`,
+        true,
+      )
+      .catch(() => {});
+  };
+  setTimeout(refreshRail, 80);
+  setTimeout(refreshRail, 350);
   if (tray) tray.setToolTip('教室大屏智控 · 右侧今日课表（最小化进托盘 / 最大化展示大屏）');
 }
 
@@ -446,19 +473,9 @@ const CAMERA_GATE = `
 
 function patchCameraAccess() {
   if (!mainWindow) return;
+  const url = mainWindow.webContents.getURL() || '';
+  if (!url.startsWith('http://') && !url.startsWith('https://')) return;
   mainWindow.webContents.executeJavaScript(CAMERA_GATE, true).catch(() => {});
-}
-
-async function installCameraGate() {
-  if (!mainWindow) return;
-  const wc = mainWindow.webContents;
-  try {
-    if (!wc.debugger.isAttached()) wc.debugger.attach('1.3');
-    await wc.debugger.sendCommand('Page.enable');
-    await wc.debugger.sendCommand('Page.addScriptToEvaluateOnNewDocument', { source: CAMERA_GATE });
-  } catch (e) {
-    crashLog(e);
-  }
 }
 
 async function injectTokenAndReload(token) {
@@ -480,6 +497,7 @@ async function createWindow() {
     width: 520,
     height: 720,
     show: true,
+    backgroundColor: '#e9f2ec',
     title: '教室大屏智控',
     icon: appIcon.isEmpty() ? undefined : appIcon,
     autoHideMenuBar: true,
@@ -494,10 +512,11 @@ async function createWindow() {
   });
 
   applySetupChrome();
-  await installCameraGate();
-  mainWindow.webContents.on('did-finish-load', () => {
-    const url = mainWindow.webContents.getURL() || '';
-    if (url.startsWith('http://') || url.startsWith('https://')) patchCameraAccess();
+  mainWindow.webContents.on('dom-ready', () => patchCameraAccess());
+  mainWindow.webContents.on('did-fail-load', (_e, _code, desc, url) => {
+    if (String(url || '').startsWith('file:')) {
+      dialog.showErrorBox('登录页没有打开', String(desc || '请重新启动程序'));
+    }
   });
   mainWindow.loadFile(path.join(appRoot(), 'setup.html'));
 
