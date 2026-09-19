@@ -1,0 +1,44 @@
+# 群晖「控制面板 → 登录门户 → 高级 → 反向代理服务器」
+# 或 DSM 7「Web Station / 应用程序门户」反向代理
+#
+# 作用：用域名 + HTTPS 访问容器内的 3789 服务（手机麦克风需要 HTTPS）
+#
+# 源（对外）:
+#   协议 HTTPS  主机名 class.你的域名.com  端口 443
+# 目的（对内）:
+#   协议 HTTP   主机名 localhost          端口 3789
+#               （若容器映射为 8789，则填 8789）
+#
+# 自定义标头（WebSocket 必需，DSM 里点「自定义标头」添加）:
+#   Upgrade            $http_upgrade
+#   Connection         $connection_upgrade
+#   Host               $host
+#   X-Real-IP          $remote_addr
+#   X-Forwarded-For    $proxy_add_x_forwarded_for
+#   X-Forwarded-Proto  $scheme
+#
+# 若 DSM 提供「WebSocket」开关，请打开。
+#
+# —— 以下为参考 nginx 片段（仅当用自定义 nginx，一般不必手写）——
+
+# upstream classroom_pro {
+#   server 127.0.0.1:3789;
+# }
+#
+# server {
+#   listen 443 ssl http2;
+#   server_name class.example.com;
+#   # ssl_certificate ...;
+#
+#   location / {
+#     proxy_pass http://classroom_pro;
+#     proxy_http_version 1.1;
+#     proxy_set_header Upgrade $http_upgrade;
+#     proxy_set_header Connection "upgrade";
+#     proxy_set_header Host $host;
+#     proxy_set_header X-Real-IP $remote_addr;
+#     proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+#     proxy_set_header X-Forwarded-Proto $scheme;
+#     proxy_read_timeout 86400;
+#   }
+# }

@@ -1,0 +1,377 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>别再把官方平台当文件夹翻了：我给老师做了两套「真能上手」的网页 - 微信排版预览</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+    font-family: -apple-system, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+    background: #f0f0f0;
+    min-height: 100vh;
+}
+.toolbar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    background: rgba(255,255,255,0.95);
+    backdrop-filter: blur(20px);
+    border-bottom: 1px solid #e0e0e0;
+    padding: 12px 20px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    z-index: 100;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+}
+.toolbar-left {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+}
+.toolbar-info {
+    font-size: 13px;
+    color: #666;
+}
+.toolbar-info span {
+    margin-right: 12px;
+}
+.toolbar-info .theme-name {
+    background: #f5f5f5;
+    padding: 2px 10px;
+    border-radius: 12px;
+    font-weight: 500;
+    color: #333;
+}
+.copy-btn {
+    padding: 10px 24px;
+    background: #07c160;
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+    letter-spacing: 1px;
+}
+.copy-btn:hover { background: #06ae56; transform: translateY(-1px); }
+.copy-btn:active { transform: translateY(0); }
+.copy-btn.copied {
+    background: #34c759;
+}
+.phone-frame {
+    max-width: 415px;
+    margin: 76px auto 40px;
+    background: #fff;
+    border-radius: 16px;
+    box-shadow: 0 4px 24px rgba(0,0,0,0.1);
+    overflow: hidden;
+}
+.phone-header {
+    background: #ededed;
+    padding: 12px 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 13px;
+    color: #999;
+    border-bottom: 1px solid #e0e0e0;
+}
+.article-content {
+    padding: 20px;
+    font-family: -apple-system, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+}
+/* 隐藏的纯微信 HTML，用于复制 */
+#wechatHtml {
+    position: absolute;
+    left: -9999px;
+    top: -9999px;
+}
+/* ── Font Size Selector ── */
+.font-size-selector {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    margin: 12px auto;
+    padding: 8px 0;
+    max-width: 415px;
+}
+.fs-label {
+    font-size: 13px;
+    color: #999;
+}
+.fs-btn {
+    padding: 4px 12px;
+    border: 1px solid #ddd;
+    border-radius: 16px;
+    background: #fff;
+    font-size: 13px;
+    color: #666;
+    cursor: pointer;
+    transition: all 0.2s;
+    font-family: inherit;
+}
+.fs-btn:hover {
+    border-color: #07C160;
+    color: #07C160;
+}
+.fs-btn.active {
+    background: #07C160;
+    border-color: #07C160;
+    color: #fff;
+}
+@media (max-width: 480px) {
+    .phone-frame {
+        margin: 60px 0 20px;
+        border-radius: 0;
+        box-shadow: none;
+    }
+    .toolbar {
+        padding: 8px 12px;
+    }
+    .copy-btn {
+        padding: 8px 16px;
+        font-size: 13px;
+    }
+}
+</style>
+</head>
+<body>
+
+<div class="toolbar">
+    <div class="toolbar-left">
+        <div class="toolbar-info">
+            <span class="theme-name">少数派</span>
+            <span>1,226 字</span>
+        </div>
+    </div>
+    <button class="copy-btn" onclick="copyToWechat()">复制到微信</button>
+</div>
+
+<div class="font-size-selector">
+    <span class="fs-label">字号</span>
+    <button class="fs-btn active" data-size="15" onclick="switchFontSize(15)">15px</button>
+    <button class="fs-btn" data-size="16" onclick="switchFontSize(16)">16px</button>
+</div>
+
+<div class="phone-frame">
+    <div class="phone-header">微信公众号预览</div>
+    <div class="article-content" id="articleContent">
+<section style="background-color:#ffffff;padding:16px" data-darkmode-bgcolor="#1a1a1a"><h1 style="font-size:29px;font-weight:700;color:#2d2d2d;line-height:1.32;letter-spacing:-0.015em;padding:11px 16px 10px;border-top:3px solid #D71A1B;border-bottom:1px solid #e8dede;background:linear-gradient(180deg, rgba(215,26,27,0.05) 0%, rgba(255,255,255,1) 100%);margin-top:36px;margin-bottom:18px" data-darkmode-bgcolor="#1a1a1a" data-darkmode-color="#e0e0e0">别再把官方平台当文件夹翻了：我给老师做了两套「真能上手」的网页</h1>
+<p style="font-size:15px;color:#333333;line-height:1.8;margin-top:0;margin-bottom:20px;letter-spacing:0.5px;text-align:left" data-darkmode-color="#c8c8c8">上周有个老师跟我说，打开精品课平台像进了大型商场——入口挺多，就是不知道先往哪走。另一位则天天把课堂计时器、随机点名、PPT 切来切去，课间恨不得多长两只手。</p>
+<p style="font-size:15px;color:#333333;line-height:1.8;margin-top:0;margin-bottom:20px;letter-spacing:0.5px;text-align:left" data-darkmode-color="#c8c8c8">这两种烦，我都碰到过。于是自己动手，做了两套本地网页：一套帮你把 <strong style="font-weight:700;color:#c51718;background:linear-gradient(180deg, rgba(215,26,27,0) 0%, rgba(215,26,27,0) 60%, rgba(215,26,27,0.14) 60%, rgba(215,26,27,0.14) 100%);padding:0 2px;display:inline" data-darkmode-color="#e0a060">2026 精品课解读</strong> 理成可逛的目录；一套把 <strong style="font-weight:700;color:#c51718;background:linear-gradient(180deg, rgba(215,26,27,0) 0%, rgba(215,26,27,0) 60%, rgba(215,26,27,0.14) 60%, rgba(215,26,27,0.14) 100%);padding:0 2px;display:inline" data-darkmode-color="#e0a060">课堂常用工具</strong> 收进同一扇门。配色也统一成了秋波蓝，看着不累。</p>
+<p style="font-size:15px;color:#333333;line-height:1.8;margin-top:0;margin-bottom:20px;letter-spacing:0.5px;text-align:left" data-darkmode-color="#c8c8c8">这篇文章不讲概念，只讲我怎么用、你怎么抄作业。</p>
+<hr style="margin-top:38px;margin-bottom:38px;height:1px;background:linear-gradient(90deg, rgba(238,238,238,0) 0%, rgba(215,26,27,0.22) 18%, rgba(215,26,27,0.78) 50%, rgba(215,26,27,0.22) 82%, rgba(238,238,238,0) 100%);border:none;width:62%;margin-left:auto;margin-right:auto">
+<h2 style="font-size:21px;font-weight:700;color:#2d2d2d;line-height:1.45;padding:8px 0 8px 14px;border-left:4px solid #D71A1B;letter-spacing:0.01em;margin-top:34px;margin-bottom:18px" data-darkmode-color="#e0e0e0">先说结论</h2>
+<section style="background:rgba(139,92,246,0.06);border-left:4px solid #8b5cf6;padding:16px;margin-top:16px;margin-bottom:16px;border-radius:0 10px 10px 0"><p style="font-weight:700;color:#8b5cf6;margin-bottom:8px;font-size:15px">⚡ 一句话</p><p style="font-size:14px;color:#333333;line-height:1.8;letter-spacing:0.3px" data-darkmode-color="#c0c0c0">官方平台负责「申报与开放节点」；本地页负责「找得快、讲得清、课上少切屏」。两套东西，别混着用。</p></section>
+
+<p style="font-size:15px;color:#333333;line-height:1.8;margin-top:0;margin-bottom:20px;letter-spacing:0.5px;text-align:left" data-darkmode-color="#c8c8c8">申报、时间节点、平台规则——还是以 国家中小学智慧教育平台精品课<sup style="font-size:12px;color:#D71A1B;vertical-align:super;margin-left:2px">[1]</sup> 实时开放为准。我做的是解读导航和课堂工具，不是替代官方入口。</p>
+<hr style="margin-top:38px;margin-bottom:38px;height:1px;background:linear-gradient(90deg, rgba(238,238,238,0) 0%, rgba(215,26,27,0.22) 18%, rgba(215,26,27,0.78) 50%, rgba(215,26,27,0.22) 82%, rgba(238,238,238,0) 100%);border:none;width:62%;margin-left:auto;margin-right:auto">
+<h2 style="font-size:21px;font-weight:700;color:#2d2d2d;line-height:1.45;padding:8px 0 8px 14px;border-left:4px solid #D71A1B;letter-spacing:0.01em;margin-top:34px;margin-bottom:18px" data-darkmode-color="#e0e0e0">第一扇门：精品课解读首页</h2>
+<p style="font-size:15px;color:#333333;line-height:1.8;margin-top:0;margin-bottom:20px;letter-spacing:0.5px;text-align:left" data-darkmode-color="#c8c8c8">以前几个 HTML 散落在文件夹里，双击哪个文件、版本写在哪儿、LOGO 还挂着旧名字……用起来像在考古。</p>
+<p style="font-size:15px;color:#333333;line-height:1.8;margin-top:0;margin-bottom:20px;letter-spacing:0.5px;text-align:left" data-darkmode-color="#c8c8c8">现在打开首页，左边三条线：<strong style="font-weight:700;color:#c51718;background:linear-gradient(180deg, rgba(215,26,27,0) 0%, rgba(215,26,27,0) 60%, rgba(215,26,27,0.14) 60%, rgba(215,26,27,0.14) 100%);padding:0 2px;display:inline" data-darkmode-color="#e0a060">目录主题 / 活动指南 / 常见问题</strong>。右边六条通道，对应学科目录、实验、特教，以及 AI、阅读、科技主题解读。点进去就走，不用猜文件名。</p>
+<p style="font-size:15px;color:#333333;line-height:1.8;margin-top:0;margin-bottom:20px;letter-spacing:0.5px;text-align:left" data-darkmode-color="#c8c8c8"><img style="max-width:100%;border-radius:8px;display:block;box-shadow:0 4px 12px rgba(0,0,0,0.08)" alt="精品课解读首页" src="images/jpk-home.png" /></p>
+<p style="font-size:15px;color:#333333;line-height:1.8;margin-top:0;margin-bottom:20px;letter-spacing:0.5px;text-align:left" data-darkmode-color="#c8c8c8"><em style="font-style:italic;color:#666666" data-darkmode-color="#a0a0a0">东郭工作室 · 2026精品课解读门户</em></p>
+<p style="font-size:15px;color:#333333;line-height:1.8;margin-top:0;margin-bottom:20px;letter-spacing:0.5px;text-align:left" data-darkmode-color="#c8c8c8">我改界面时把旧水印和版本号都清了，品牌统一成「东郭工作室」。颜色也从那种「深夜工作室黑」换成了中等秋波蓝——教室投影和大屏上，蓝底白字更稳。</p>
+<hr style="margin-top:38px;margin-bottom:38px;height:1px;background:linear-gradient(90deg, rgba(238,238,238,0) 0%, rgba(215,26,27,0.22) 18%, rgba(215,26,27,0.78) 50%, rgba(215,26,27,0.22) 82%, rgba(238,238,238,0) 100%);border:none;width:62%;margin-left:auto;margin-right:auto">
+<h2 style="font-size:21px;font-weight:700;color:#2d2d2d;line-height:1.45;padding:8px 0 8px 14px;border-left:4px solid #D71A1B;letter-spacing:0.01em;margin-top:34px;margin-bottom:18px" data-darkmode-color="#e0e0e0">选课目录：搜索 + 左侧筛选，不再死磕表格</h2>
+<p style="font-size:15px;color:#333333;line-height:1.8;margin-top:0;margin-bottom:20px;letter-spacing:0.5px;text-align:left" data-darkmode-color="#c8c8c8">学科精品课目录页，我没再做「大表格往下滚」。上面搜索，左边筛，中间卡片流。你要找某一年级、某一学科，几下就能缩范围。</p>
+<p style="font-size:15px;color:#333333;line-height:1.8;margin-top:0;margin-bottom:20px;letter-spacing:0.5px;text-align:left" data-darkmode-color="#c8c8c8"><img style="max-width:100%;border-radius:8px;display:block;box-shadow:0 4px 12px rgba(0,0,0,0.08)" alt="学科精品课目录选课页" src="images/jpk-catalog.png" /></p>
+<p style="font-size:15px;color:#333333;line-height:1.8;margin-top:0;margin-bottom:20px;letter-spacing:0.5px;text-align:left" data-darkmode-color="#c8c8c8"><em style="font-style:italic;color:#666666" data-darkmode-color="#a0a0a0">搜索、筛选、卡片流：对照平台开放节点自己核对</em></p>
+<p style="font-size:15px;color:#333333;line-height:1.8;margin-top:0;margin-bottom:20px;letter-spacing:0.5px;text-align:left" data-darkmode-color="#c8c8c8">实验教学、特殊教育两套目录，交互同一套逻辑。省得老师记三套操作习惯。</p>
+<p style="font-size:15px;color:#333333;line-height:1.8;margin-top:0;margin-bottom:20px;letter-spacing:0.5px;text-align:left" data-darkmode-color="#c8c8c8">主题内容页（比如人工智能教育类）则是左侧目录 + 右侧阅读区，适合边对照官方说明边备课。</p>
+<p style="font-size:15px;color:#333333;line-height:1.8;margin-top:0;margin-bottom:20px;letter-spacing:0.5px;text-align:left" data-darkmode-color="#c8c8c8"><img style="max-width:100%;border-radius:8px;display:block;box-shadow:0 4px 12px rgba(0,0,0,0.08)" alt="AI教育主题解读页" src="images/jpk-ai.png" /></p>
+<p style="font-size:15px;color:#333333;line-height:1.8;margin-top:0;margin-bottom:20px;letter-spacing:0.5px;text-align:left" data-darkmode-color="#c8c8c8"><em style="font-style:italic;color:#666666" data-darkmode-color="#a0a0a0">主题页：侧栏目录跟着走，长文不迷路</em></p>
+<section style="background:rgba(16,185,129,0.06);border-left:4px solid #10b981;padding:16px;margin-top:16px;margin-bottom:16px;border-radius:0 10px 10px 0"><p style="font-weight:700;color:#10b981;margin-bottom:8px;font-size:15px">💡 实用提醒</p><p style="font-size:14px;color:#333333;line-height:1.8;letter-spacing:0.3px" data-darkmode-color="#c0c0c0">材料标注了 2026，但申报节点以平台当下开放为准。本地页帮你「找内容、对主题」，不替你「卡截止日」。</p></section>
+
+<hr style="margin-top:38px;margin-bottom:38px;height:1px;background:linear-gradient(90deg, rgba(238,238,238,0) 0%, rgba(215,26,27,0.22) 18%, rgba(215,26,27,0.78) 50%, rgba(215,26,27,0.22) 82%, rgba(238,238,238,0) 100%);border:none;width:62%;margin-left:auto;margin-right:auto">
+<h2 style="font-size:21px;font-weight:700;color:#2d2d2d;line-height:1.45;padding:8px 0 8px 14px;border-left:4px solid #D71A1B;letter-spacing:0.01em;margin-top:34px;margin-bottom:18px" data-darkmode-color="#e0e0e0">第二扇门：课堂工具站 classroom-hub</h2>
+<p style="font-size:15px;color:#333333;line-height:1.8;margin-top:0;margin-bottom:20px;letter-spacing:0.5px;text-align:left" data-darkmode-color="#c8c8c8">精品课是「备赛 / 选题」那条线。课上另一件事更碎：计时、随机、板书辅助、各种小工具……每个开一个网页或软件，切屏就打断节奏。</p>
+<p style="font-size:15px;color:#333333;line-height:1.8;margin-top:0;margin-bottom:20px;letter-spacing:0.5px;text-align:left" data-darkmode-color="#c8c8c8">所以我把课堂常用能力收进 <strong style="font-weight:700;color:#c51718;background:linear-gradient(180deg, rgba(215,26,27,0) 0%, rgba(215,26,27,0) 60%, rgba(215,26,27,0.14) 60%, rgba(215,26,27,0.14) 100%);padding:0 2px;display:inline" data-darkmode-color="#e0a060">classroom-hub</strong>。同样是秋波蓝侧栏，一眼能认出是同一套东西。</p>
+<p style="font-size:15px;color:#333333;line-height:1.8;margin-top:0;margin-bottom:20px;letter-spacing:0.5px;text-align:left" data-darkmode-color="#c8c8c8"><img style="max-width:100%;border-radius:8px;display:block;box-shadow:0 4px 12px rgba(0,0,0,0.08)" alt="课堂工具站首页" src="images/hub-home.png" /></p>
+<p style="font-size:15px;color:#333333;line-height:1.8;margin-top:0;margin-bottom:20px;letter-spacing:0.5px;text-align:left" data-darkmode-color="#c8c8c8"><em style="font-style:italic;color:#666666" data-darkmode-color="#a0a0a0">classroom-hub：课堂工具收在同一扇门里</em></p>
+<p style="font-size:15px;color:#333333;line-height:1.8;margin-top:0;margin-bottom:20px;letter-spacing:0.5px;text-align:left" data-darkmode-color="#c8c8c8">切到计时等面板时，布局还是那一套蓝——老师不用重新学「这是哪个产品」。</p>
+<p style="font-size:15px;color:#333333;line-height:1.8;margin-top:0;margin-bottom:20px;letter-spacing:0.5px;text-align:left" data-darkmode-color="#c8c8c8"><img style="max-width:100%;border-radius:8px;display:block;box-shadow:0 4px 12px rgba(0,0,0,0.08)" alt="课堂工具面板" src="images/hub-panel.png" /></p>
+<p style="font-size:15px;color:#333333;line-height:1.8;margin-top:0;margin-bottom:20px;letter-spacing:0.5px;text-align:left" data-darkmode-color="#c8c8c8"><em style="font-style:italic;color:#666666" data-darkmode-color="#a0a0a0">侧栏切换面板，少切应用、少丢节奏</em></p>
+<p style="font-size:15px;color:#333333;line-height:1.8;margin-top:0;margin-bottom:20px;letter-spacing:0.5px;text-align:left" data-darkmode-color="#c8c8c8">我自己上课会把工具站投到副屏或浏览器标签里固定住。主屏继续 PPT，副屏负责「点人、倒计时」。比五个书签来回跳踏实。</p>
+<hr style="margin-top:38px;margin-bottom:38px;height:1px;background:linear-gradient(90deg, rgba(238,238,238,0) 0%, rgba(215,26,27,0.22) 18%, rgba(215,26,27,0.78) 50%, rgba(215,26,27,0.22) 82%, rgba(238,238,238,0) 100%);border:none;width:62%;margin-left:auto;margin-right:auto">
+<h2 style="font-size:21px;font-weight:700;color:#2d2d2d;line-height:1.45;padding:8px 0 8px 14px;border-left:4px solid #D71A1B;letter-spacing:0.01em;margin-top:34px;margin-bottom:18px" data-darkmode-color="#e0e0e0">我为什么要统一成「秋波蓝」</h2>
+<p style="font-size:15px;color:#333333;line-height:1.8;margin-top:0;margin-bottom:20px;letter-spacing:0.5px;text-align:left" data-darkmode-color="#c8c8c8">不是为了好看。</p>
+<p style="font-size:15px;color:#333333;line-height:1.8;margin-top:0;margin-bottom:20px;letter-spacing:0.5px;text-align:left" data-darkmode-color="#c8c8c8">同一套色，老师记品牌；投影上对比够；深海蓝太闷、高亮青蓝又刺眼，中等秋波蓝折中。精品课解读和 classroom-hub 共享同一视觉语言，以后再加页也不显得拼凑。</p>
+<hr style="margin-top:38px;margin-bottom:38px;height:1px;background:linear-gradient(90deg, rgba(238,238,238,0) 0%, rgba(215,26,27,0.22) 18%, rgba(215,26,27,0.78) 50%, rgba(215,26,27,0.22) 82%, rgba(238,238,238,0) 100%);border:none;width:62%;margin-left:auto;margin-right:auto">
+<h2 style="font-size:21px;font-weight:700;color:#2d2d2d;line-height:1.45;padding:8px 0 8px 14px;border-left:4px solid #D71A1B;letter-spacing:0.01em;margin-top:34px;margin-bottom:18px" data-darkmode-color="#e0e0e0">你可以怎么用</h2>
+<section style="margin-top:16px;margin-bottom:16px"><section style="display:flex;margin-bottom:8px;align-items:flex-start"><span style="display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;min-width:22px;background:rgba(215,26,27,0.1);color:#D71A1B;border-radius:50%;font-size:13px;font-weight:bold;margin-right:10px;margin-top:4px" data-darkmode-bgcolor="rgba(215,26,27,0.2)">1</span><span style="font-size:15px;color:#333333;line-height:1.8;letter-spacing:0.5px" data-darkmode-color="#c8c8c8"><strong style="font-weight:700;color:#c51718;background:linear-gradient(180deg, rgba(215,26,27,0) 0%, rgba(215,26,27,0) 60%, rgba(215,26,27,0.14) 60%, rgba(215,26,27,0.14) 100%);padding:0 2px;display:inline" data-darkmode-color="#e0a060">备精品课 / 对主题</strong>：先开解读首页 → 目录或主题 → 再回官方平台核节点。</span></section><section style="display:flex;margin-bottom:8px;align-items:flex-start"><span style="display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;min-width:22px;background:rgba(215,26,27,0.1);color:#D71A1B;border-radius:50%;font-size:13px;font-weight:bold;margin-right:10px;margin-top:4px" data-darkmode-bgcolor="rgba(215,26,27,0.2)">2</span><span style="font-size:15px;color:#333333;line-height:1.8;letter-spacing:0.5px" data-darkmode-color="#c8c8c8"><strong style="font-weight:700;color:#c51718;background:linear-gradient(180deg, rgba(215,26,27,0) 0%, rgba(215,26,27,0) 60%, rgba(215,26,27,0.14) 60%, rgba(215,26,27,0.14) 100%);padding:0 2px;display:inline" data-darkmode-color="#e0a060">日常上课</strong>：classroom-hub 常驻一个标签，计时和点名少切屏。</span></section><section style="display:flex;margin-bottom:8px;align-items:flex-start"><span style="display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;min-width:22px;background:rgba(215,26,27,0.1);color:#D71A1B;border-radius:50%;font-size:13px;font-weight:bold;margin-right:10px;margin-top:4px" data-darkmode-bgcolor="rgba(215,26,27,0.2)">3</span><span style="font-size:15px;color:#333333;line-height:1.8;letter-spacing:0.5px" data-darkmode-color="#c8c8c8"><strong style="font-weight:700;color:#c51718;background:linear-gradient(180deg, rgba(215,26,27,0) 0%, rgba(215,26,27,0) 60%, rgba(215,26,27,0.14) 60%, rgba(215,26,27,0.14) 100%);padding:0 2px;display:inline" data-darkmode-color="#e0a060">分享给同事</strong>：两套都是本地网页，拷文件夹就能用；别指望它替代智慧教育平台登录申报。</span></section></section>
+<section style="background:rgba(245,158,11,0.06);border-left:4px solid #f59e0b;padding:16px;margin-top:16px;margin-bottom:16px;border-radius:0 10px 10px 0"><p style="font-weight:700;color:#f59e0b;margin-bottom:8px;font-size:15px">⚠️ 边界说清楚</p><p style="font-size:14px;color:#333333;line-height:1.8;letter-spacing:0.3px" data-darkmode-color="#c0c0c0">本地页不采集账号、不代替官方提交。有争议的以教育部平台与当期通知为准。</p></section>
+
+<hr style="margin-top:38px;margin-bottom:38px;height:1px;background:linear-gradient(90deg, rgba(238,238,238,0) 0%, rgba(215,26,27,0.22) 18%, rgba(215,26,27,0.78) 50%, rgba(215,26,27,0.22) 82%, rgba(238,238,238,0) 100%);border:none;width:62%;margin-left:auto;margin-right:auto">
+<h2 style="font-size:21px;font-weight:700;color:#2d2d2d;line-height:1.45;padding:8px 0 8px 14px;border-left:4px solid #D71A1B;letter-spacing:0.01em;margin-top:34px;margin-bottom:18px" data-darkmode-color="#e0e0e0">写在最后</h2>
+<p style="font-size:15px;color:#333333;line-height:1.8;margin-top:0;margin-bottom:20px;letter-spacing:0.5px;text-align:left" data-darkmode-color="#c8c8c8">老师缺的往往不是「再多一个 AI 名词」，而是少翻几次文件夹、少切几次窗口。</p>
+<p style="font-size:15px;color:#333333;line-height:1.8;margin-top:0;margin-bottom:20px;letter-spacing:0.5px;text-align:left" data-darkmode-color="#c8c8c8">这两套页，就是奔着这件事做的。你要是也在备精品课，或者课上被小工具弄得手忙脚乱——拿去用，改成你校自己的入口也行。</p>
+<p style="font-size:15px;color:#333333;line-height:1.8;margin-top:0;margin-bottom:20px;letter-spacing:0.5px;text-align:left" data-darkmode-color="#c8c8c8">有问题直接留言。东郭工作室，继续改。</p></section>
+<section style="margin-top:32px;padding-top:16px;border-top:1px dashed #f0e0e0">
+<p style="font-size:14px;font-weight:bold;color:#999999;margin-bottom:12px" data-darkmode-color="#888888">参考链接</p>
+<p style="font-size:12px;color:#999999;margin-bottom:6px;line-height:1.6;word-break:break-all" data-darkmode-color="#888888">[1] 国家中小学智慧教育平台精品课: https://jpk.basic.smartedu.cn/</p>
+</section>
+    </div>
+</div>
+
+<!-- 隐藏区域：存放纯微信 HTML（不含预览壳样式），复制时用这个 -->
+<div id="wechatHtml">
+<section style="background-color:#ffffff;padding:16px" data-darkmode-bgcolor="#1a1a1a"><h1 style="font-size:29px;font-weight:700;color:#2d2d2d;line-height:1.32;letter-spacing:-0.015em;padding:11px 16px 10px;border-top:3px solid #D71A1B;border-bottom:1px solid #e8dede;background:linear-gradient(180deg, rgba(215,26,27,0.05) 0%, rgba(255,255,255,1) 100%);margin-top:36px;margin-bottom:18px" data-darkmode-bgcolor="#1a1a1a" data-darkmode-color="#e0e0e0">别再把官方平台当文件夹翻了：我给老师做了两套「真能上手」的网页</h1>
+<p style="font-size:15px;color:#333333;line-height:1.8;margin-top:0;margin-bottom:20px;letter-spacing:0.5px;text-align:left" data-darkmode-color="#c8c8c8">上周有个老师跟我说，打开精品课平台像进了大型商场——入口挺多，就是不知道先往哪走。另一位则天天把课堂计时器、随机点名、PPT 切来切去，课间恨不得多长两只手。</p>
+<p style="font-size:15px;color:#333333;line-height:1.8;margin-top:0;margin-bottom:20px;letter-spacing:0.5px;text-align:left" data-darkmode-color="#c8c8c8">这两种烦，我都碰到过。于是自己动手，做了两套本地网页：一套帮你把 <strong style="font-weight:700;color:#c51718;background:linear-gradient(180deg, rgba(215,26,27,0) 0%, rgba(215,26,27,0) 60%, rgba(215,26,27,0.14) 60%, rgba(215,26,27,0.14) 100%);padding:0 2px;display:inline" data-darkmode-color="#e0a060">2026 精品课解读</strong> 理成可逛的目录；一套把 <strong style="font-weight:700;color:#c51718;background:linear-gradient(180deg, rgba(215,26,27,0) 0%, rgba(215,26,27,0) 60%, rgba(215,26,27,0.14) 60%, rgba(215,26,27,0.14) 100%);padding:0 2px;display:inline" data-darkmode-color="#e0a060">课堂常用工具</strong> 收进同一扇门。配色也统一成了秋波蓝，看着不累。</p>
+<p style="font-size:15px;color:#333333;line-height:1.8;margin-top:0;margin-bottom:20px;letter-spacing:0.5px;text-align:left" data-darkmode-color="#c8c8c8">这篇文章不讲概念，只讲我怎么用、你怎么抄作业。</p>
+<hr style="margin-top:38px;margin-bottom:38px;height:1px;background:linear-gradient(90deg, rgba(238,238,238,0) 0%, rgba(215,26,27,0.22) 18%, rgba(215,26,27,0.78) 50%, rgba(215,26,27,0.22) 82%, rgba(238,238,238,0) 100%);border:none;width:62%;margin-left:auto;margin-right:auto">
+<h2 style="font-size:21px;font-weight:700;color:#2d2d2d;line-height:1.45;padding:8px 0 8px 14px;border-left:4px solid #D71A1B;letter-spacing:0.01em;margin-top:34px;margin-bottom:18px" data-darkmode-color="#e0e0e0">先说结论</h2>
+<section style="background:rgba(139,92,246,0.06);border-left:4px solid #8b5cf6;padding:16px;margin-top:16px;margin-bottom:16px;border-radius:0 10px 10px 0"><p style="font-weight:700;color:#8b5cf6;margin-bottom:8px;font-size:15px">⚡ 一句话</p><p style="font-size:14px;color:#333333;line-height:1.8;letter-spacing:0.3px" data-darkmode-color="#c0c0c0">官方平台负责「申报与开放节点」；本地页负责「找得快、讲得清、课上少切屏」。两套东西，别混着用。</p></section>
+
+<p style="font-size:15px;color:#333333;line-height:1.8;margin-top:0;margin-bottom:20px;letter-spacing:0.5px;text-align:left" data-darkmode-color="#c8c8c8">申报、时间节点、平台规则——还是以 国家中小学智慧教育平台精品课<sup style="font-size:12px;color:#D71A1B;vertical-align:super;margin-left:2px">[1]</sup> 实时开放为准。我做的是解读导航和课堂工具，不是替代官方入口。</p>
+<hr style="margin-top:38px;margin-bottom:38px;height:1px;background:linear-gradient(90deg, rgba(238,238,238,0) 0%, rgba(215,26,27,0.22) 18%, rgba(215,26,27,0.78) 50%, rgba(215,26,27,0.22) 82%, rgba(238,238,238,0) 100%);border:none;width:62%;margin-left:auto;margin-right:auto">
+<h2 style="font-size:21px;font-weight:700;color:#2d2d2d;line-height:1.45;padding:8px 0 8px 14px;border-left:4px solid #D71A1B;letter-spacing:0.01em;margin-top:34px;margin-bottom:18px" data-darkmode-color="#e0e0e0">第一扇门：精品课解读首页</h2>
+<p style="font-size:15px;color:#333333;line-height:1.8;margin-top:0;margin-bottom:20px;letter-spacing:0.5px;text-align:left" data-darkmode-color="#c8c8c8">以前几个 HTML 散落在文件夹里，双击哪个文件、版本写在哪儿、LOGO 还挂着旧名字……用起来像在考古。</p>
+<p style="font-size:15px;color:#333333;line-height:1.8;margin-top:0;margin-bottom:20px;letter-spacing:0.5px;text-align:left" data-darkmode-color="#c8c8c8">现在打开首页，左边三条线：<strong style="font-weight:700;color:#c51718;background:linear-gradient(180deg, rgba(215,26,27,0) 0%, rgba(215,26,27,0) 60%, rgba(215,26,27,0.14) 60%, rgba(215,26,27,0.14) 100%);padding:0 2px;display:inline" data-darkmode-color="#e0a060">目录主题 / 活动指南 / 常见问题</strong>。右边六条通道，对应学科目录、实验、特教，以及 AI、阅读、科技主题解读。点进去就走，不用猜文件名。</p>
+<p style="font-size:15px;color:#333333;line-height:1.8;margin-top:0;margin-bottom:20px;letter-spacing:0.5px;text-align:left" data-darkmode-color="#c8c8c8"><img style="max-width:100%;border-radius:8px;display:block;box-shadow:0 4px 12px rgba(0,0,0,0.08)" alt="精品课解读首页" src="images/jpk-home.png" /></p>
+<p style="font-size:15px;color:#333333;line-height:1.8;margin-top:0;margin-bottom:20px;letter-spacing:0.5px;text-align:left" data-darkmode-color="#c8c8c8"><em style="font-style:italic;color:#666666" data-darkmode-color="#a0a0a0">东郭工作室 · 2026精品课解读门户</em></p>
+<p style="font-size:15px;color:#333333;line-height:1.8;margin-top:0;margin-bottom:20px;letter-spacing:0.5px;text-align:left" data-darkmode-color="#c8c8c8">我改界面时把旧水印和版本号都清了，品牌统一成「东郭工作室」。颜色也从那种「深夜工作室黑」换成了中等秋波蓝——教室投影和大屏上，蓝底白字更稳。</p>
+<hr style="margin-top:38px;margin-bottom:38px;height:1px;background:linear-gradient(90deg, rgba(238,238,238,0) 0%, rgba(215,26,27,0.22) 18%, rgba(215,26,27,0.78) 50%, rgba(215,26,27,0.22) 82%, rgba(238,238,238,0) 100%);border:none;width:62%;margin-left:auto;margin-right:auto">
+<h2 style="font-size:21px;font-weight:700;color:#2d2d2d;line-height:1.45;padding:8px 0 8px 14px;border-left:4px solid #D71A1B;letter-spacing:0.01em;margin-top:34px;margin-bottom:18px" data-darkmode-color="#e0e0e0">选课目录：搜索 + 左侧筛选，不再死磕表格</h2>
+<p style="font-size:15px;color:#333333;line-height:1.8;margin-top:0;margin-bottom:20px;letter-spacing:0.5px;text-align:left" data-darkmode-color="#c8c8c8">学科精品课目录页，我没再做「大表格往下滚」。上面搜索，左边筛，中间卡片流。你要找某一年级、某一学科，几下就能缩范围。</p>
+<p style="font-size:15px;color:#333333;line-height:1.8;margin-top:0;margin-bottom:20px;letter-spacing:0.5px;text-align:left" data-darkmode-color="#c8c8c8"><img style="max-width:100%;border-radius:8px;display:block;box-shadow:0 4px 12px rgba(0,0,0,0.08)" alt="学科精品课目录选课页" src="images/jpk-catalog.png" /></p>
+<p style="font-size:15px;color:#333333;line-height:1.8;margin-top:0;margin-bottom:20px;letter-spacing:0.5px;text-align:left" data-darkmode-color="#c8c8c8"><em style="font-style:italic;color:#666666" data-darkmode-color="#a0a0a0">搜索、筛选、卡片流：对照平台开放节点自己核对</em></p>
+<p style="font-size:15px;color:#333333;line-height:1.8;margin-top:0;margin-bottom:20px;letter-spacing:0.5px;text-align:left" data-darkmode-color="#c8c8c8">实验教学、特殊教育两套目录，交互同一套逻辑。省得老师记三套操作习惯。</p>
+<p style="font-size:15px;color:#333333;line-height:1.8;margin-top:0;margin-bottom:20px;letter-spacing:0.5px;text-align:left" data-darkmode-color="#c8c8c8">主题内容页（比如人工智能教育类）则是左侧目录 + 右侧阅读区，适合边对照官方说明边备课。</p>
+<p style="font-size:15px;color:#333333;line-height:1.8;margin-top:0;margin-bottom:20px;letter-spacing:0.5px;text-align:left" data-darkmode-color="#c8c8c8"><img style="max-width:100%;border-radius:8px;display:block;box-shadow:0 4px 12px rgba(0,0,0,0.08)" alt="AI教育主题解读页" src="images/jpk-ai.png" /></p>
+<p style="font-size:15px;color:#333333;line-height:1.8;margin-top:0;margin-bottom:20px;letter-spacing:0.5px;text-align:left" data-darkmode-color="#c8c8c8"><em style="font-style:italic;color:#666666" data-darkmode-color="#a0a0a0">主题页：侧栏目录跟着走，长文不迷路</em></p>
+<section style="background:rgba(16,185,129,0.06);border-left:4px solid #10b981;padding:16px;margin-top:16px;margin-bottom:16px;border-radius:0 10px 10px 0"><p style="font-weight:700;color:#10b981;margin-bottom:8px;font-size:15px">💡 实用提醒</p><p style="font-size:14px;color:#333333;line-height:1.8;letter-spacing:0.3px" data-darkmode-color="#c0c0c0">材料标注了 2026，但申报节点以平台当下开放为准。本地页帮你「找内容、对主题」，不替你「卡截止日」。</p></section>
+
+<hr style="margin-top:38px;margin-bottom:38px;height:1px;background:linear-gradient(90deg, rgba(238,238,238,0) 0%, rgba(215,26,27,0.22) 18%, rgba(215,26,27,0.78) 50%, rgba(215,26,27,0.22) 82%, rgba(238,238,238,0) 100%);border:none;width:62%;margin-left:auto;margin-right:auto">
+<h2 style="font-size:21px;font-weight:700;color:#2d2d2d;line-height:1.45;padding:8px 0 8px 14px;border-left:4px solid #D71A1B;letter-spacing:0.01em;margin-top:34px;margin-bottom:18px" data-darkmode-color="#e0e0e0">第二扇门：课堂工具站 classroom-hub</h2>
+<p style="font-size:15px;color:#333333;line-height:1.8;margin-top:0;margin-bottom:20px;letter-spacing:0.5px;text-align:left" data-darkmode-color="#c8c8c8">精品课是「备赛 / 选题」那条线。课上另一件事更碎：计时、随机、板书辅助、各种小工具……每个开一个网页或软件，切屏就打断节奏。</p>
+<p style="font-size:15px;color:#333333;line-height:1.8;margin-top:0;margin-bottom:20px;letter-spacing:0.5px;text-align:left" data-darkmode-color="#c8c8c8">所以我把课堂常用能力收进 <strong style="font-weight:700;color:#c51718;background:linear-gradient(180deg, rgba(215,26,27,0) 0%, rgba(215,26,27,0) 60%, rgba(215,26,27,0.14) 60%, rgba(215,26,27,0.14) 100%);padding:0 2px;display:inline" data-darkmode-color="#e0a060">classroom-hub</strong>。同样是秋波蓝侧栏，一眼能认出是同一套东西。</p>
+<p style="font-size:15px;color:#333333;line-height:1.8;margin-top:0;margin-bottom:20px;letter-spacing:0.5px;text-align:left" data-darkmode-color="#c8c8c8"><img style="max-width:100%;border-radius:8px;display:block;box-shadow:0 4px 12px rgba(0,0,0,0.08)" alt="课堂工具站首页" src="images/hub-home.png" /></p>
+<p style="font-size:15px;color:#333333;line-height:1.8;margin-top:0;margin-bottom:20px;letter-spacing:0.5px;text-align:left" data-darkmode-color="#c8c8c8"><em style="font-style:italic;color:#666666" data-darkmode-color="#a0a0a0">classroom-hub：课堂工具收在同一扇门里</em></p>
+<p style="font-size:15px;color:#333333;line-height:1.8;margin-top:0;margin-bottom:20px;letter-spacing:0.5px;text-align:left" data-darkmode-color="#c8c8c8">切到计时等面板时，布局还是那一套蓝——老师不用重新学「这是哪个产品」。</p>
+<p style="font-size:15px;color:#333333;line-height:1.8;margin-top:0;margin-bottom:20px;letter-spacing:0.5px;text-align:left" data-darkmode-color="#c8c8c8"><img style="max-width:100%;border-radius:8px;display:block;box-shadow:0 4px 12px rgba(0,0,0,0.08)" alt="课堂工具面板" src="images/hub-panel.png" /></p>
+<p style="font-size:15px;color:#333333;line-height:1.8;margin-top:0;margin-bottom:20px;letter-spacing:0.5px;text-align:left" data-darkmode-color="#c8c8c8"><em style="font-style:italic;color:#666666" data-darkmode-color="#a0a0a0">侧栏切换面板，少切应用、少丢节奏</em></p>
+<p style="font-size:15px;color:#333333;line-height:1.8;margin-top:0;margin-bottom:20px;letter-spacing:0.5px;text-align:left" data-darkmode-color="#c8c8c8">我自己上课会把工具站投到副屏或浏览器标签里固定住。主屏继续 PPT，副屏负责「点人、倒计时」。比五个书签来回跳踏实。</p>
+<hr style="margin-top:38px;margin-bottom:38px;height:1px;background:linear-gradient(90deg, rgba(238,238,238,0) 0%, rgba(215,26,27,0.22) 18%, rgba(215,26,27,0.78) 50%, rgba(215,26,27,0.22) 82%, rgba(238,238,238,0) 100%);border:none;width:62%;margin-left:auto;margin-right:auto">
+<h2 style="font-size:21px;font-weight:700;color:#2d2d2d;line-height:1.45;padding:8px 0 8px 14px;border-left:4px solid #D71A1B;letter-spacing:0.01em;margin-top:34px;margin-bottom:18px" data-darkmode-color="#e0e0e0">我为什么要统一成「秋波蓝」</h2>
+<p style="font-size:15px;color:#333333;line-height:1.8;margin-top:0;margin-bottom:20px;letter-spacing:0.5px;text-align:left" data-darkmode-color="#c8c8c8">不是为了好看。</p>
+<p style="font-size:15px;color:#333333;line-height:1.8;margin-top:0;margin-bottom:20px;letter-spacing:0.5px;text-align:left" data-darkmode-color="#c8c8c8">同一套色，老师记品牌；投影上对比够；深海蓝太闷、高亮青蓝又刺眼，中等秋波蓝折中。精品课解读和 classroom-hub 共享同一视觉语言，以后再加页也不显得拼凑。</p>
+<hr style="margin-top:38px;margin-bottom:38px;height:1px;background:linear-gradient(90deg, rgba(238,238,238,0) 0%, rgba(215,26,27,0.22) 18%, rgba(215,26,27,0.78) 50%, rgba(215,26,27,0.22) 82%, rgba(238,238,238,0) 100%);border:none;width:62%;margin-left:auto;margin-right:auto">
+<h2 style="font-size:21px;font-weight:700;color:#2d2d2d;line-height:1.45;padding:8px 0 8px 14px;border-left:4px solid #D71A1B;letter-spacing:0.01em;margin-top:34px;margin-bottom:18px" data-darkmode-color="#e0e0e0">你可以怎么用</h2>
+<section style="margin-top:16px;margin-bottom:16px"><section style="display:flex;margin-bottom:8px;align-items:flex-start"><span style="display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;min-width:22px;background:rgba(215,26,27,0.1);color:#D71A1B;border-radius:50%;font-size:13px;font-weight:bold;margin-right:10px;margin-top:4px" data-darkmode-bgcolor="rgba(215,26,27,0.2)">1</span><span style="font-size:15px;color:#333333;line-height:1.8;letter-spacing:0.5px" data-darkmode-color="#c8c8c8"><strong style="font-weight:700;color:#c51718;background:linear-gradient(180deg, rgba(215,26,27,0) 0%, rgba(215,26,27,0) 60%, rgba(215,26,27,0.14) 60%, rgba(215,26,27,0.14) 100%);padding:0 2px;display:inline" data-darkmode-color="#e0a060">备精品课 / 对主题</strong>：先开解读首页 → 目录或主题 → 再回官方平台核节点。</span></section><section style="display:flex;margin-bottom:8px;align-items:flex-start"><span style="display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;min-width:22px;background:rgba(215,26,27,0.1);color:#D71A1B;border-radius:50%;font-size:13px;font-weight:bold;margin-right:10px;margin-top:4px" data-darkmode-bgcolor="rgba(215,26,27,0.2)">2</span><span style="font-size:15px;color:#333333;line-height:1.8;letter-spacing:0.5px" data-darkmode-color="#c8c8c8"><strong style="font-weight:700;color:#c51718;background:linear-gradient(180deg, rgba(215,26,27,0) 0%, rgba(215,26,27,0) 60%, rgba(215,26,27,0.14) 60%, rgba(215,26,27,0.14) 100%);padding:0 2px;display:inline" data-darkmode-color="#e0a060">日常上课</strong>：classroom-hub 常驻一个标签，计时和点名少切屏。</span></section><section style="display:flex;margin-bottom:8px;align-items:flex-start"><span style="display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;min-width:22px;background:rgba(215,26,27,0.1);color:#D71A1B;border-radius:50%;font-size:13px;font-weight:bold;margin-right:10px;margin-top:4px" data-darkmode-bgcolor="rgba(215,26,27,0.2)">3</span><span style="font-size:15px;color:#333333;line-height:1.8;letter-spacing:0.5px" data-darkmode-color="#c8c8c8"><strong style="font-weight:700;color:#c51718;background:linear-gradient(180deg, rgba(215,26,27,0) 0%, rgba(215,26,27,0) 60%, rgba(215,26,27,0.14) 60%, rgba(215,26,27,0.14) 100%);padding:0 2px;display:inline" data-darkmode-color="#e0a060">分享给同事</strong>：两套都是本地网页，拷文件夹就能用；别指望它替代智慧教育平台登录申报。</span></section></section>
+<section style="background:rgba(245,158,11,0.06);border-left:4px solid #f59e0b;padding:16px;margin-top:16px;margin-bottom:16px;border-radius:0 10px 10px 0"><p style="font-weight:700;color:#f59e0b;margin-bottom:8px;font-size:15px">⚠️ 边界说清楚</p><p style="font-size:14px;color:#333333;line-height:1.8;letter-spacing:0.3px" data-darkmode-color="#c0c0c0">本地页不采集账号、不代替官方提交。有争议的以教育部平台与当期通知为准。</p></section>
+
+<hr style="margin-top:38px;margin-bottom:38px;height:1px;background:linear-gradient(90deg, rgba(238,238,238,0) 0%, rgba(215,26,27,0.22) 18%, rgba(215,26,27,0.78) 50%, rgba(215,26,27,0.22) 82%, rgba(238,238,238,0) 100%);border:none;width:62%;margin-left:auto;margin-right:auto">
+<h2 style="font-size:21px;font-weight:700;color:#2d2d2d;line-height:1.45;padding:8px 0 8px 14px;border-left:4px solid #D71A1B;letter-spacing:0.01em;margin-top:34px;margin-bottom:18px" data-darkmode-color="#e0e0e0">写在最后</h2>
+<p style="font-size:15px;color:#333333;line-height:1.8;margin-top:0;margin-bottom:20px;letter-spacing:0.5px;text-align:left" data-darkmode-color="#c8c8c8">老师缺的往往不是「再多一个 AI 名词」，而是少翻几次文件夹、少切几次窗口。</p>
+<p style="font-size:15px;color:#333333;line-height:1.8;margin-top:0;margin-bottom:20px;letter-spacing:0.5px;text-align:left" data-darkmode-color="#c8c8c8">这两套页，就是奔着这件事做的。你要是也在备精品课，或者课上被小工具弄得手忙脚乱——拿去用，改成你校自己的入口也行。</p>
+<p style="font-size:15px;color:#333333;line-height:1.8;margin-top:0;margin-bottom:20px;letter-spacing:0.5px;text-align:left" data-darkmode-color="#c8c8c8">有问题直接留言。东郭工作室，继续改。</p></section>
+<section style="margin-top:32px;padding-top:16px;border-top:1px dashed #f0e0e0">
+<p style="font-size:14px;font-weight:bold;color:#999999;margin-bottom:12px" data-darkmode-color="#888888">参考链接</p>
+<p style="font-size:12px;color:#999999;margin-bottom:6px;line-height:1.6;word-break:break-all" data-darkmode-color="#888888">[1] 国家中小学智慧教育平台精品课: https://jpk.basic.smartedu.cn/</p>
+</section>
+</div>
+
+<script>
+function switchFontSize(size) {
+    // 更新按钮状态
+    document.querySelectorAll('.fs-btn').forEach(function(btn) {
+        if (parseInt(btn.dataset.size) === size) {
+            btn.classList.add('active');
+        } else {
+            btn.classList.remove('active');
+        }
+    });
+
+    // 修改可见预览区和隐藏复制区的 p 标签
+    ['articleContent', 'wechatHtml'].forEach(function(id) {
+        var container = document.getElementById(id);
+        if (!container) return;
+        container.querySelectorAll('p').forEach(function(p) {
+            var currentSize = parseInt(window.getComputedStyle(p).fontSize);
+            if (currentSize >= 14 && currentSize <= 16) {
+                p.style.fontSize = size + 'px';
+                p.style.lineHeight = size === 16 ? '1.75' : '1.8';
+            }
+        });
+        // 修改列表项文字
+        container.querySelectorAll('[style*="font-size:15px"]').forEach(function(el) {
+            if (el.tagName === 'SPAN' || el.tagName === 'SECTION') {
+                el.style.fontSize = size + 'px';
+            }
+        });
+    });
+
+    // 保存选择到 localStorage
+    localStorage.setItem('wechat-format-fontsize', size);
+}
+
+// 页面加载时恢复上次选择
+document.addEventListener('DOMContentLoaded', function() {
+    var saved = localStorage.getItem('wechat-format-fontsize');
+    if (saved && saved !== '15') {
+        switchFontSize(parseInt(saved));
+    }
+});
+
+function copyToWechat() {
+    const source = document.getElementById('wechatHtml');
+    const range = document.createRange();
+    range.selectNodeContents(source);
+
+    // 临时让元素可见（否则某些浏览器不允许复制隐藏元素）
+    source.style.position = 'fixed';
+    source.style.left = '0';
+    source.style.top = '0';
+    source.style.opacity = '0.01';
+    source.style.width = '375px';
+
+    const sel = window.getSelection();
+    sel.removeAllRanges();
+    sel.addRange(range);
+
+    try {
+        document.execCommand('copy');
+        const btn = document.querySelector('.copy-btn');
+        btn.textContent = '已复制!';
+        btn.classList.add('copied');
+        setTimeout(() => {
+            btn.textContent = '复制到微信';
+            btn.classList.remove('copied');
+        }, 2500);
+    } catch(e) {
+        // fallback: 尝试 Clipboard API
+        const html = source.innerHTML;
+        const blob = new Blob([html], { type: 'text/html' });
+        const item = new ClipboardItem({ 'text/html': blob });
+        navigator.clipboard.write([item]).then(() => {
+            const btn = document.querySelector('.copy-btn');
+            btn.textContent = '已复制!';
+            btn.classList.add('copied');
+            setTimeout(() => {
+                btn.textContent = '复制到微信';
+                btn.classList.remove('copied');
+            }, 2500);
+        }).catch(() => {
+            alert('复制失败，请手动选中文章内容复制');
+        });
+    }
+
+    // 恢复隐藏
+    source.style.position = 'absolute';
+    source.style.left = '-9999px';
+    source.style.top = '-9999px';
+    source.style.opacity = '';
+    source.style.width = '';
+
+    sel.removeAllRanges();
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,38 @@
+# 群晖 Container Manager → 项目 → 从 compose 创建
+# 将本文件与上级目录中的 server/、client/ 一并放到 NAS 后构建
+#
+# 目录建议：
+#   /volume1/docker/classroom-pro/
+#     ├── docker-compose.yml   (本文件)
+#     ├── .env
+#     ├── Dockerfile
+#     ├── server/
+#     └── client/
+
+services:
+  classroom-pro:
+    build:
+      context: ../..
+      dockerfile: deploy/synology/Dockerfile
+    container_name: classroom-pro
+    restart: unless-stopped
+    ports:
+      # 宿主机端口:容器端口（可按需改左边，如 8789:3789）
+      - "${HOST_PORT:-3789}:3789"
+    environment:
+      PORT: "3789"
+      NODE_ENV: production
+      # 外网访问地址（含 https），供局域网优先失败后回退；管理后台也可再改
+      PUBLIC_URL: "${PUBLIC_URL:-}"
+      DATA_DIR: /app/data
+    volumes:
+      # 数据库与持久数据（务必挂载，升级不丢）
+      - classroom-pro-data:/app/data
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3789/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+volumes:
+  classroom-pro-data:

@@ -1,0 +1,57 @@
+# classroom-hub
+node_modules/
+**/node_modules/
+dist/
+**/dist/
+dist-ssr/
+*.local
+.DS_Store
+.idea/
+.vscode/*
+!.vscode/extensions.json
+
+# logs & caches
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+*.tsbuildinfo
+.cache/
+.temp/
+
+# runtime data & secrets
+**/*.db
+**/*.db-*
+**/server/data/
+**/.env
+**/.env.*
+!**/.env.example
+board-config.local.json
+
+# Electron / installer binaries (too large for git)
+**/board-desktop/dist-exe/
+**/board-desktop/node_modules/
+**/server/downloads/*.exe
+**/server/downloads/*.zip
+**/client/public/downloads/*.exe
+**/client/public/downloads/*.zip
+**/client/dist/downloads/
+
+# deploy generated upload trees (optional rebuild from scripts)
+# keep scripts; ignore huge mirrored node_modules if any
+**/deploy/synology-upload/**/node_modules/
+**/deploy/webstation-upload/**/node_modules/
+
+# OS / editor
+Thumbs.db
+Desktop.ini
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# misc local scratch
+_ref_*

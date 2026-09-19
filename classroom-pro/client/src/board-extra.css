@@ -1,0 +1,141 @@
+/* 座位 / 课表 / 大屏右侧栏 */
+
+.seat-grid .seat-cell {
+  min-height: 72px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: #fff;
+  padding: 8px;
+  cursor: pointer;
+  user-select: none;
+  transition: box-shadow 0.15s, border-color 0.15s;
+}
+.seat-grid .seat-cell.filled {
+  background: #e8f6f1;
+}
+.seat-grid .seat-cell.on {
+  border-color: var(--teal);
+  box-shadow: 0 0 0 2px #0b6e6340;
+}
+.seat-pos {
+  font-size: 12px;
+  color: var(--muted);
+}
+.seat-name {
+  font-weight: 700;
+  margin-top: 4px;
+  font-size: 15px;
+}
+
+.tt-table {
+  width: 100%;
+  border-collapse: collapse;
+  background: #fff;
+  border-radius: 12px;
+  overflow: hidden;
+}
+.tt-table th,
+.tt-table td {
+  border: 1px solid var(--line);
+  padding: 10px 12px;
+  text-align: left;
+}
+.tt-table input {
+  width: 100%;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 8px 10px;
+}
+
+.board-with-tt {
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: stretch;
+  gap: 0;
+  min-height: 100vh;
+}
+.board-main-col {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+.board-tt-rail {
+  width: 220px;
+  flex-shrink: 0;
+  background: linear-gradient(180deg, #0b3d36, #0a2a26);
+  color: #e8f5f0;
+  padding: 16px 12px;
+  display: flex;
+  flex-direction: column;
+  border-left: 1px solid #ffffff22;
+}
+.board-tt-head {
+  font-size: 18px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  margin-bottom: 14px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid #ffffff33;
+}
+.board-tt-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  overflow: auto;
+  flex: 1;
+}
+.board-tt-item {
+  background: #ffffff14;
+  border-radius: 12px;
+  padding: 10px 12px;
+}
+.board-tt-period {
+  font-size: 12px;
+  opacity: 0.75;
+  margin-bottom: 4px;
+}
+.board-tt-subject {
+  font-size: 22px;
+  font-weight: 800;
+  line-height: 1.25;
+}
+.board-tt-teacher {
+  font-size: 14px;
+  opacity: 0.85;
+  margin-top: 4px;
+}
+.board-tt-empty {
+  opacity: 0.7;
+  font-size: 14px;
+  line-height: 1.5;
+}
+/* 一体机收起后：窗口贴在屏幕右侧，只留课表 */
+html.ccp-rail-only,
+body.ccp-rail-only {
+  background: #0a2a26 !important;
+  margin: 0;
+  overflow: hidden;
+}
+.board-page.rail-only .board-main-col {
+  display: none !important;
+}
+.board-page.rail-only {
+  min-height: 100vh;
+  height: 100vh;
+  background: #0a2a26 !important;
+}
+.board-page.rail-only .board-tt-rail {
+  width: 100%;
+  height: 100vh;
+  border-left: none;
+}
+
+.board-seat-cell {
+  background: #ffffff18;
+  border: 1px solid #ffffff33;
+  border-radius: 10px;
+  padding: 10px;
+  text-align: center;
+  color: #e8f5f0;
+}
