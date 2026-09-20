@@ -110,6 +110,13 @@
   opacity: 0.75;
   margin-bottom: 4px;
 }
+.board-tt-time {
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+  opacity: 0.9;
+  margin-bottom: 4px;
+  letter-spacing: 0.02em;
+}
 .board-tt-subject {
   font-size: 22px;
   font-weight: 800;

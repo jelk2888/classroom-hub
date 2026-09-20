@@ -11,7 +11,7 @@ type Live = {
   flash?: boolean;
 };
 
-type TodaySlot = { period_key: string; subject: string; teacher: string; label?: string };
+type TodaySlot = { period_key: string; subject: string; teacher: string; label?: string; start?: string; end?: string };
 type SeatCell = {
   row_idx: number;
   col_idx: number;
@@ -195,7 +195,7 @@ export function BoardPage({ className }: { className?: string }) {
   const loadToday = async () => {
     try {
       const d = await api('/api/timetable/today');
-      const periods: { key: string; label: string }[] = d.periods || [];
+      const periods: { key: string; label: string; start?: string; end?: string }[] = d.periods || [];
       const map: Record<string, string> = {};
       periods.forEach((p) => {
         map[p.key] = p.label;
@@ -206,10 +206,15 @@ export function BoardPage({ className }: { className?: string }) {
       setTodayDay(d.day || 0);
       setTtEnabled(d.enabled !== false);
       setTodaySlots(
-        (d.slots || []).map((s: TodaySlot) => ({
-          ...s,
-          label: map[s.period_key] || s.period_key,
-        })),
+        (d.slots || []).map((s: TodaySlot) => {
+          const p = periods.find((x) => x.key === s.period_key);
+          return {
+            ...s,
+            label: map[s.period_key] || s.period_key,
+            start: s.start || p?.start || '',
+            end: s.end || p?.end || '',
+          };
+        }),
       );
     } catch {
       /* ignore */
@@ -621,6 +626,11 @@ export function BoardPage({ className }: { className?: string }) {
           {todaySlots.map((s) => (
             <div key={s.period_key} className="board-tt-item">
               <div className="board-tt-period">{s.label || s.period_key}</div>
+              {s.start || s.end ? (
+                <div className="board-tt-time">
+                  {[s.start, s.end].filter(Boolean).join('–')}
+                </div>
+              ) : null}
               <div className="board-tt-subject">{s.subject || '—'}</div>
               {s.teacher ? <div className="board-tt-teacher">{s.teacher}</div> : null}
             </div>

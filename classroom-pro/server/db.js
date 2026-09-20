@@ -361,6 +361,11 @@ export function initDb() {
       enable_sunday INTEGER NOT NULL DEFAULT 0,
       morning_label TEXT NOT NULL DEFAULT '早自习',
       evening_label TEXT NOT NULL DEFAULT '晚自习',
+      morning_count INTEGER NOT NULL DEFAULT 1,
+      am_count INTEGER NOT NULL DEFAULT 4,
+      pm_count INTEGER NOT NULL DEFAULT 4,
+      evening_count INTEGER NOT NULL DEFAULT 1,
+      period_times TEXT NOT NULL DEFAULT '{}',
       updated_at TEXT NOT NULL DEFAULT (datetime('now','localtime'))
     );
 
@@ -375,6 +380,24 @@ export function initDb() {
       UNIQUE(class_id, day, period_key)
     );
   `);
+
+  // 旧库补节数列
+  const addTtCol = (name, ddl) => {
+    try {
+      db.prepare(`SELECT ${name} FROM timetable_settings LIMIT 1`).get();
+    } catch {
+      try {
+        db.exec(`ALTER TABLE timetable_settings ADD COLUMN ${ddl}`);
+      } catch {
+        /* ignore */
+      }
+    }
+  };
+  addTtCol('morning_count', `morning_count INTEGER NOT NULL DEFAULT 1`);
+  addTtCol('am_count', `am_count INTEGER NOT NULL DEFAULT 4`);
+  addTtCol('pm_count', `pm_count INTEGER NOT NULL DEFAULT 4`);
+  addTtCol('evening_count', `evening_count INTEGER NOT NULL DEFAULT 1`);
+  addTtCol('period_times', `period_times TEXT NOT NULL DEFAULT '{}'`);
 
   const auto = db.prepare(`SELECT value FROM system_settings WHERE key='class_auto_approve'`).get();
   if (!auto) {

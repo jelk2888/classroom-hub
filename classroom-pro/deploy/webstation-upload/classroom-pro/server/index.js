@@ -1060,19 +1060,163 @@ app.post('/api/duty/posts', auth, requireClass, (req, res) => {
   res.json({ ok: true });
 });
 
-// ---------- 座位编排 ----------
-const DEFAULT_PERIODS = [
-  { key: 'morning', label: '早自习', sort: 0 },
-  { key: 'p1', label: '第1节', sort: 1 },
-  { key: 'p2', label: '第2节', sort: 2 },
-  { key: 'p3', label: '第3节', sort: 3 },
-  { key: 'p4', label: '第4节', sort: 4 },
-  { key: 'p5', label: '第5节', sort: 5 },
-  { key: 'p6', label: '第6节', sort: 6 },
-  { key: 'p7', label: '第7节', sort: 7 },
-  { key: 'p8', label: '第8节', sort: 8 },
-  { key: 'evening', label: '晚自习', sort: 9 },
-];
+// ---------- 周课表 ----------
+function clampInt(v, min, max, fallback) {
+  const n = Number(v);
+  if (!Number.isFinite(n)) return fallback;
+  return Math.max(min, Math.min(max, Math.round(n)));
+}
+
+/** HH:MM 校验，非法则返回空串 */
+function normalizeTime(v) {
+  const s = String(v || '').trim();
+  if (!s) return '';
+  const m = /^([01]?\d|2[0-3]):([0-5]\d)$/.exec(s);
+  if (!m) return '';
+  return `${m[1].padStart(2, '0')}:${m[2]}`;
+}
+
+function parsePeriodTimes(raw) {
+  let obj = raw;
+  if (typeof raw === 'string') {
+    try {
+      obj = JSON.parse(raw || '{}');
+    } catch {
+      obj = {};
+    }
+  }
+  if (!obj || typeof obj !== 'object') return {};
+  const out = {};
+  for (const [key, val] of Object.entries(obj)) {
+    if (!key || typeof val !== 'object' || !val) continue;
+    const start = normalizeTime(val.start);
+    const end = normalizeTime(val.end);
+    if (start || end) out[key] = { start, end };
+  }
+  return out;
+}
+
+function serializePeriodTimes(input) {
+  return JSON.stringify(parsePeriodTimes(input));
+}
+
+/** 按班级设置生成节次：早自习 / 上午 / 下午 / 晚自习（含上课时间） */
+function buildPeriods(settings) {
+  const morningLabel = String(settings?.morning_label || '早自习').slice(0, 20);
+  const eveningLabel = String(settings?.evening_label || '晚自习').slice(0, 20);
+  const morningCount = clampInt(settings?.morning_count, 0, 4, settings?.enable_morning ? 1 : 0);
+  const amCount = clampInt(settings?.am_count, 0, 8, 4);
+  const pmCount = clampInt(settings?.pm_count, 0, 8, 4);
+  const eveningCount = clampInt(settings?.evening_count, 0, 6, settings?.enable_evening ? 1 : 0);
+  const times = parsePeriodTimes(settings?.period_times);
+  const periods = [];
+  let sort = 0;
+  const push = (key, label, section) => {
+    const t = times[key] || {};
+    periods.push({
+      key,
+      label,
+      sort: sort++,
+      section,
+      start: t.start || '',
+      end: t.end || '',
+    });
+  };
+  for (let i = 1; i <= morningCount; i += 1) {
+    push(
+      morningCount === 1 ? 'morning' : `morning_${i}`,
+      morningCount === 1 ? morningLabel : `${morningLabel}${i}`,
+      'morning',
+    );
+  }
+  for (let i = 1; i <= amCount; i += 1) {
+    push(`am_${i}`, `上午第${i}节`, 'am');
+  }
+  for (let i = 1; i <= pmCount; i += 1) {
+    push(`pm_${i}`, `下午第${i}节`, 'pm');
+  }
+  for (let i = 1; i <= eveningCount; i += 1) {
+    push(
+      eveningCount === 1 ? 'evening' : `evening_${i}`,
+      eveningCount === 1 ? eveningLabel : `${eveningLabel}${i}`,
+      'evening',
+    );
+  }
+  return periods;
+}
+
+/** 把旧版 p1–p8 / morning / evening 迁到 am_/pm_ 等新键（只迁一次） */
+function migrateLegacyTimetableSlots(classId, settings) {
+  const rows = db
+    .prepare(`SELECT day, period_key, subject, teacher, sort_order FROM timetable_slots WHERE class_id=?`)
+    .all(classId);
+  if (!rows.length) return;
+  const hasNew = rows.some((r) => /^(am_|pm_|morning_|evening_)/.test(r.period_key));
+  const hasOldP = rows.some((r) => /^p\d+$/.test(r.period_key));
+  if (hasNew || !hasOldP) return;
+
+  const amCount = clampInt(settings?.am_count, 0, 8, 4);
+  const upsert = db.prepare(
+    `INSERT INTO timetable_slots (class_id, day, period_key, subject, teacher, sort_order)
+     VALUES (?, ?, ?, ?, ?, ?)
+     ON CONFLICT(class_id, day, period_key) DO UPDATE SET
+       subject=excluded.subject, teacher=excluded.teacher, sort_order=excluded.sort_order`,
+  );
+  const del = db.prepare(`DELETE FROM timetable_slots WHERE class_id=? AND day=? AND period_key=?`);
+  const tx = db.transaction(() => {
+    for (const r of rows) {
+      let nextKey = null;
+      let sort = r.sort_order;
+      if (/^p\d+$/.test(r.period_key)) {
+        const n = Number(r.period_key.slice(1));
+        if (n >= 1 && n <= amCount) {
+          nextKey = `am_${n}`;
+          sort = n;
+        } else if (n > amCount) {
+          nextKey = `pm_${n - amCount}`;
+          sort = amCount + (n - amCount);
+        }
+      }
+      if (!nextKey) continue;
+      upsert.run(classId, r.day, nextKey, r.subject, r.teacher, sort);
+      del.run(classId, r.day, r.period_key);
+    }
+  });
+  tx();
+}
+
+function ensureTimetableSettings(classId) {
+  let s = db.prepare('SELECT * FROM timetable_settings WHERE class_id=?').get(classId);
+  if (!s) {
+    db.prepare(`INSERT INTO timetable_settings (class_id) VALUES (?)`).run(classId);
+    s = db.prepare('SELECT * FROM timetable_settings WHERE class_id=?').get(classId);
+  }
+  // 旧数据：开关开着但节数为空时补默认
+  const patch = {};
+  if (s.morning_count == null) patch.morning_count = s.enable_morning ? 1 : 0;
+  if (s.am_count == null) patch.am_count = 4;
+  if (s.pm_count == null) patch.pm_count = 4;
+  if (s.evening_count == null) patch.evening_count = s.enable_evening ? 1 : 0;
+  if (Object.keys(patch).length) {
+    db.prepare(
+      `UPDATE timetable_settings SET
+        morning_count=COALESCE(morning_count, ?),
+        am_count=COALESCE(am_count, ?),
+        pm_count=COALESCE(pm_count, ?),
+        evening_count=COALESCE(evening_count, ?)
+       WHERE class_id=?`,
+    ).run(
+      patch.morning_count ?? s.morning_count ?? 1,
+      patch.am_count ?? s.am_count ?? 4,
+      patch.pm_count ?? s.pm_count ?? 4,
+      patch.evening_count ?? s.evening_count ?? 1,
+      classId,
+    );
+    s = db.prepare('SELECT * FROM timetable_settings WHERE class_id=?').get(classId);
+  }
+  migrateLegacyTimetableSlots(classId, s);
+  return s;
+}
 
 function ensureSeatLayout(classId) {
   let layout = db.prepare('SELECT * FROM seat_layout WHERE class_id=?').get(classId);
@@ -1081,17 +1225,6 @@ function ensureSeatLayout(classId) {
     layout = db.prepare('SELECT * FROM seat_layout WHERE class_id=?').get(classId);
   }
   return layout;
-}
-
-function ensureTimetableSettings(classId) {
-  let s = db.prepare('SELECT * FROM timetable_settings WHERE class_id=?').get(classId);
-  if (!s) {
-    db.prepare(
-      `INSERT INTO timetable_settings (class_id) VALUES (?)`,
-    ).run(classId);
-    s = db.prepare('SELECT * FROM timetable_settings WHERE class_id=?').get(classId);
-  }
-  return s;
 }
 
 app.get('/api/seats', auth, requireClass, (req, res) => {
@@ -1264,29 +1397,42 @@ app.post('/api/seats/show', auth, requireClass, (req, res) => {
 });
 
 // ---------- 课表 ----------
+function settingsForClient(settings) {
+  if (!settings) return settings;
+  return {
+    ...settings,
+    period_times: parsePeriodTimes(settings.period_times),
+  };
+}
+
 app.get('/api/timetable', auth, requireClass, (req, res) => {
   const classId = req.classRow.id;
   const settings = ensureTimetableSettings(classId);
+  const periods = buildPeriods(settings);
   const slots = db
     .prepare(
       `SELECT id, day, period_key, subject, teacher, sort_order
        FROM timetable_slots WHERE class_id=? ORDER BY day, sort_order, period_key`,
     )
     .all(classId);
-  res.json({ settings, slots, periods: DEFAULT_PERIODS });
+  res.json({ settings: settingsForClient(settings), slots, periods });
 });
 
 app.get('/api/timetable/today', auth, requireClass, (req, res) => {
   const classId = req.classRow.id;
   const settings = ensureTimetableSettings(classId);
+  const periods = buildPeriods(settings);
+  const periodKeys = new Set(periods.map((p) => p.key));
+  const periodByKey = new Map(periods.map((p) => [p.key, p]));
   // JS: 0=周日 … 6=周六；存储 day 用 1=周一 … 7=周日
   const jsDay = new Date().getDay();
   const day = jsDay === 0 ? 7 : jsDay;
+  const clientSettings = settingsForClient(settings);
   if (day === 6 && !settings.enable_saturday) {
-    return res.json({ day, enabled: false, slots: [], settings, periods: DEFAULT_PERIODS });
+    return res.json({ day, enabled: false, slots: [], settings: clientSettings, periods });
   }
   if (day === 7 && !settings.enable_sunday) {
-    return res.json({ day, enabled: false, slots: [], settings, periods: DEFAULT_PERIODS });
+    return res.json({ day, enabled: false, slots: [], settings: clientSettings, periods });
   }
   let slots = db
     .prepare(
@@ -1294,39 +1440,94 @@ app.get('/api/timetable/today', auth, requireClass, (req, res) => {
        WHERE class_id=? AND day=? ORDER BY sort_order, period_key`,
     )
     .all(classId, day);
-  slots = slots.filter((s) => {
-    if (s.period_key === 'morning' && !settings.enable_morning) return false;
-    if (s.period_key === 'evening' && !settings.enable_evening) return false;
-    return !!(s.subject || s.teacher);
-  });
-  res.json({ day, enabled: true, slots, settings, periods: DEFAULT_PERIODS });
+  slots = slots
+    .filter((s) => periodKeys.has(s.period_key) && !!(s.subject || s.teacher))
+    .map((s) => {
+      const p = periodByKey.get(s.period_key);
+      return {
+        ...s,
+        start: p?.start || '',
+        end: p?.end || '',
+        label: p?.label || s.period_key,
+      };
+    });
+  const order = new Map(periods.map((p) => [p.key, p.sort]));
+  slots.sort((a, b) => (order.get(a.period_key) ?? 99) - (order.get(b.period_key) ?? 99));
+  res.json({ day, enabled: true, slots, settings: clientSettings, periods });
 });
 
 app.put('/api/timetable/settings', auth, requireClass, (req, res) => {
   const classId = req.classRow.id;
   ensureTimetableSettings(classId);
   const b = req.body || {};
-  db.prepare(
-    `UPDATE timetable_settings SET
-      enable_morning=?, enable_evening=?, enable_saturday=?, enable_sunday=?,
-      morning_label=?, evening_label=?,
-      updated_at=datetime('now','localtime')
-     WHERE class_id=?`,
-  ).run(
-    b.enable_morning ? 1 : 0,
-    b.enable_evening ? 1 : 0,
-    b.enable_saturday ? 1 : 0,
-    b.enable_sunday ? 1 : 0,
-    String(b.morning_label || '早自习').slice(0, 20),
-    String(b.evening_label || '晚自习').slice(0, 20),
-    classId,
-  );
+  const morningCount = clampInt(b.morning_count, 0, 4, b.enable_morning === false ? 0 : 1);
+  const amCount = clampInt(b.am_count, 0, 8, 4);
+  const pmCount = clampInt(b.pm_count, 0, 8, 4);
+  const eveningCount = clampInt(b.evening_count, 0, 6, b.enable_evening === false ? 0 : 1);
+  const hasTimes = b.period_times != null;
+  const periodTimesJson = hasTimes ? serializePeriodTimes(b.period_times) : null;
+  if (hasTimes) {
+    db.prepare(
+      `UPDATE timetable_settings SET
+        enable_morning=?, enable_evening=?, enable_saturday=?, enable_sunday=?,
+        morning_label=?, evening_label=?,
+        morning_count=?, am_count=?, pm_count=?, evening_count=?,
+        period_times=?,
+        updated_at=datetime('now','localtime')
+       WHERE class_id=?`,
+    ).run(
+      morningCount > 0 ? 1 : 0,
+      eveningCount > 0 ? 1 : 0,
+      b.enable_saturday ? 1 : 0,
+      b.enable_sunday ? 1 : 0,
+      String(b.morning_label || '早自习').slice(0, 20),
+      String(b.evening_label || '晚自习').slice(0, 20),
+      morningCount,
+      amCount,
+      pmCount,
+      eveningCount,
+      periodTimesJson,
+      classId,
+    );
+  } else {
+    db.prepare(
+      `UPDATE timetable_settings SET
+        enable_morning=?, enable_evening=?, enable_saturday=?, enable_sunday=?,
+        morning_label=?, evening_label=?,
+        morning_count=?, am_count=?, pm_count=?, evening_count=?,
+        updated_at=datetime('now','localtime')
+       WHERE class_id=?`,
+    ).run(
+      morningCount > 0 ? 1 : 0,
+      eveningCount > 0 ? 1 : 0,
+      b.enable_saturday ? 1 : 0,
+      b.enable_sunday ? 1 : 0,
+      String(b.morning_label || '早自习').slice(0, 20),
+      String(b.evening_label || '晚自习').slice(0, 20),
+      morningCount,
+      amCount,
+      pmCount,
+      eveningCount,
+      classId,
+    );
+  }
   trackModule(classId, 'timetable');
-  res.json({ ok: true, settings: ensureTimetableSettings(classId) });
+  const settings = ensureTimetableSettings(classId);
+  res.json({ ok: true, settings, periods: buildPeriods(settings) });
 });
 
 app.put('/api/timetable/slots', auth, requireClass, (req, res) => {
   const classId = req.classRow.id;
+  const settings = ensureTimetableSettings(classId);
+  // 保存课表时可一并提交节次时间
+  if (req.body?.period_times != null) {
+    db.prepare(
+      `UPDATE timetable_settings SET period_times=?, updated_at=datetime('now','localtime') WHERE class_id=?`,
+    ).run(serializePeriodTimes(req.body.period_times), classId);
+  }
+  const fresh = ensureTimetableSettings(classId);
+  const periods = buildPeriods(fresh);
+  const periodMap = new Map(periods.map((p) => [p.key, p]));
   const slots = Array.isArray(req.body?.slots) ? req.body.slots : [];
   const upsert = db.prepare(
     `INSERT INTO timetable_slots (class_id, day, period_key, subject, teacher, sort_order)
@@ -1339,7 +1540,8 @@ app.put('/api/timetable/slots', auth, requireClass, (req, res) => {
       const day = Number(s.day);
       const period_key = String(s.period_key || '').trim();
       if (!day || day < 1 || day > 7 || !period_key) return;
-      const periodMeta = DEFAULT_PERIODS.find((p) => p.key === period_key);
+      if (!periodMap.has(period_key)) return;
+      const periodMeta = periodMap.get(period_key);
       upsert.run(
         classId,
         day,
@@ -1353,7 +1555,7 @@ app.put('/api/timetable/slots', auth, requireClass, (req, res) => {
   tx();
   trackModule(classId, 'timetable');
   publishLive(classId, 'timetable', { action: 'refresh' });
-  res.json({ ok: true });
+  res.json({ ok: true, periods: buildPeriods(ensureTimetableSettings(classId)) });
 });
 
 // ---------- Admin ----------
