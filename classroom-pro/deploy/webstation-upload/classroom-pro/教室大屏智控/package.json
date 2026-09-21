@@ -1,0 +1,34 @@
+{
+  "name": "classroom-board-desktop",
+  "version": "1.0.0",
+  "private": true,
+  "main": "main.cjs",
+  "description": "教室大屏托盘端 - 本机登录、托盘待命、有任务弹出、右侧当天课表",
+  "author": "天门中学",
+  "scripts": {
+    "start": "electron .",
+    "pack": "electron-builder --win portable",
+    "pack:local": "python pack-portable.py",
+    "pack:installer": "python pack-installer.py"
+  },
+  "devDependencies": {
+    "electron": "^37.2.0",
+    "electron-builder": "^26.0.12"
+  },
+  "build": {
+    "appId": "cn.tmen.classroom.board",
+    "productName": "教室大屏智控",
+    "directories": { "output": "dist-exe" },
+    "files": [
+      "main.cjs",
+      "preload.cjs",
+      "board-config.json",
+      "package.json"
+    ],
+    "win": {
+      "target": ["portable"],
+      "signAndEditExecutable": false,
+      "artifactName": "教室大屏智控.exe"
+    }
+  }
+}

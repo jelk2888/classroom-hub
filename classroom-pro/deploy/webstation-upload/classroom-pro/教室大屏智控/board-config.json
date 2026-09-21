@@ -1,0 +1,10 @@
+{
+  "host": "test.zjjdg.top",
+  "port": 5666,
+  "https": false,
+  "code": "",
+  "password": "",
+  "remember": true,
+  "autoLogin": false,
+  "url": "http://test.zjjdg.top:5666/?mode=desktop"
+}

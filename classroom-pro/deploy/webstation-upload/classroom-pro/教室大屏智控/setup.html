@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>教室大屏智控 · 登录设置</title>
+  <style>
+    :root { --teal:#0b6e63; --ink:#14261f; --bg:#e9f2ec; --panel:#fffdf8; }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0; min-height: 100vh; font-family: "Microsoft YaHei", "PingFang SC", sans-serif;
+      color: var(--ink);
+      background: radial-gradient(circle at 0% 0%, #0b6e6329, transparent 42%),
+        linear-gradient(160deg, #d7ebe3, var(--bg) 45%, #efe8d8);
+      display: grid; place-items: center; padding: 24px;
+    }
+    .card {
+      width: min(440px, 100%); background: var(--panel); border-radius: 22px;
+      padding: 28px 26px; box-shadow: 0 16px 40px #14261f1f; border: 1px solid #14261f1f;
+    }
+    .logo { width: 72px; height: 72px; object-fit: contain; display: block; margin: 0 auto 12px; }
+    h1 { margin: 0 0 6px; text-align: center; font-size: 24px; }
+    .sub { text-align: center; color: #4d6359; margin: 0 0 18px; font-size: 14px; line-height: 1.5; }
+    label { display: block; margin: 12px 0 6px; font-size: 14px; font-weight: 600; }
+    input[type=text], input[type=password], input[type=number] {
+      width: 100%; padding: 10px 12px; border-radius: 10px; border: 1px solid #14261f33; font: inherit;
+    }
+    .row { display: grid; grid-template-columns: 1fr 100px; gap: 10px; }
+    .chk { display: flex; align-items: center; gap: 8px; margin-top: 14px; font-size: 14px; }
+    .btn {
+      width: 100%; margin-top: 18px; padding: 12px; border: none; border-radius: 12px;
+      background: var(--teal); color: #fff; font-size: 16px; font-weight: 700; cursor: pointer;
+    }
+    .btn:disabled { opacity: .6; cursor: wait; }
+    .btn.ghost { background: #fff; color: var(--teal); border: 1px solid var(--teal); margin-top: 10px; }
+    .err { color: #b14343; margin-top: 10px; font-size: 14px; }
+    .ok { color: #2f7d4a; margin-top: 10px; font-size: 14px; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <img class="logo" src="assets/app.png" alt="logo" />
+    <h1>教室大屏智控</h1>
+    <p class="sub">一体机专用：先设置服务器与班级账号，再进入大屏待命</p>
+
+    <label>服务器 IP / 域名</label>
+    <input id="host" type="text" placeholder="例如 192.168.1.10 或 test.zjjdg.top" />
+
+    <label>端口</label>
+    <div class="row">
+      <input id="port" type="number" min="1" max="65535" placeholder="5666" />
+      <label class="chk" style="margin:0"><input id="https" type="checkbox" /> HTTPS</label>
+    </div>
+
+    <label>班级码</label>
+    <input id="code" type="text" placeholder="如 DEMO01" />
+
+    <label>访问密码</label>
+    <input id="password" type="password" placeholder="班级密码" />
+
+    <label class="chk"><input id="remember" type="checkbox" checked /> 记住账号密码（仅保存在本机）</label>
+    <label class="chk"><input id="autoLogin" type="checkbox" /> 下次启动自动登录</label>
+
+    <div id="msg" class="err"></div>
+    <button class="btn" id="go" type="button">登录并进入大屏</button>
+    <button class="btn ghost" id="saveOnly" type="button">仅保存设置</button>
+  </div>
+  <script src="setup.js"></script>
+</body>
+</html>
